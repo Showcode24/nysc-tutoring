@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +31,6 @@ import {
   GraduationCap,
   Briefcase,
 } from "lucide-react";
-import {
-  getTutorById,
-  getAuditEventsForTutor,
-  getAppointmentsForTutor,
-  mockAdmin,
-} from "@/app/src/mock/data";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +38,20 @@ import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts"
 import Link from "next/link";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import { useParams } from "next/navigation";
+import { auth } from "@/app/firebase/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/app/firebase/firebase";
+import { TutorStatus } from "@/app/src/types";
+import {
+  fetchTutorReviewData,
+  approveTutor,
+  rejectTutor,
+  approveDocument,
+  rejectDocument,
+  scheduleAppointment,
+  TutorReviewData,
+} from "@/app/firebase/adminTutorReviewService";
 
 const adminNavItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -68,25 +78,220 @@ const documentStatusConfig = {
   },
 };
 
+function mapStatus(status: string): TutorStatus {
+  if (status === "pending_verification") return "pending";
+  return (status as TutorStatus) || "pending";
+}
+
 export default function AdminTutorReview() {
   const params = useParams();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const tutorId = Array.isArray(params.id) ? params.id[0] : params.id || "";
   const { toast } = useToast();
+
+  const [data, setData] = useState<TutorReviewData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [adminInfo, setAdminInfo] = useState({ id: "", name: "", role: "" });
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("");
 
-  const tutor = getTutorById(id || "");
-  const auditEvents = getAuditEventsForTutor(id || "");
-  const appointments = getAppointmentsForTutor(id || "");
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const adminDoc = await getDoc(doc(db, "users", user.uid));
+        if (adminDoc.exists()) {
+          const d = adminDoc.data();
+          setAdminInfo({
+            id: user.uid,
+            name: `${d.firstName} ${d.lastName}`,
+            role: d.role?.replace(/_/g, " ") || "admin",
+          });
+        }
+      }
+      const result = await fetchTutorReviewData(tutorId);
+      setData(result);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
+  }, [tutorId]);
 
-  if (!tutor) {
+  const handleApprove = async () => {
+    if (!data?.tutor) return;
+    setIsProcessing(true);
+    try {
+      await approveTutor(tutorId, adminInfo.id, adminInfo.name);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              tutor: prev.tutor
+                ? {
+                    ...prev.tutor,
+                    tutorProfile: {
+                      ...prev.tutor.tutorProfile,
+                      status: "active",
+                    },
+                  }
+                : null,
+            }
+          : null,
+      );
+      toast({
+        title: "Tutor Approved",
+        description: `${data.tutor.firstName} ${data.tutor.lastName} has been approved and activated.`,
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to approve tutor.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!data?.tutor) return;
+    setIsProcessing(true);
+    try {
+      await rejectTutor(tutorId, adminInfo.id, adminInfo.name, rejectReason);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              tutor: prev.tutor
+                ? {
+                    ...prev.tutor,
+                    tutorProfile: {
+                      ...prev.tutor.tutorProfile,
+                      status: "rejected",
+                    },
+                  }
+                : null,
+            }
+          : null,
+      );
+      toast({
+        title: "Application Rejected",
+        description: `${data.tutor.firstName} ${data.tutor.lastName}'s application has been rejected.`,
+        variant: "destructive",
+      });
+      setRejectDialogOpen(false);
+      setRejectReason("");
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to reject tutor.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleApproveDocument = async (docId: string) => {
+    try {
+      await approveDocument(docId);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              documents: prev.documents.map((d) =>
+                d.id === docId ? { ...d, status: "approved" as const } : d,
+              ),
+            }
+          : null,
+      );
+      toast({ title: "Document Approved" });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to approve document.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectDocument = async (docId: string) => {
+    try {
+      await rejectDocument(docId, "");
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              documents: prev.documents.map((d) =>
+                d.id === docId ? { ...d, status: "rejected" as const } : d,
+              ),
+            }
+          : null,
+      );
+      toast({ title: "Document Rejected" });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to reject document.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleScheduleAppointment = async () => {
+    if (!appointmentDate || !appointmentTime) {
+      toast({
+        title: "Missing Fields",
+        description: "Please provide both date and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      await scheduleAppointment(
+        tutorId,
+        adminInfo.id,
+        adminInfo.name,
+        appointmentDate,
+        appointmentTime,
+      );
+      toast({
+        title: "Appointment Scheduled",
+        description: `Appointment set for ${appointmentDate} at ${appointmentTime}`,
+      });
+      setScheduleDialogOpen(false);
+      setAppointmentDate("");
+      setAppointmentTime("");
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to schedule appointment.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!data?.tutor) {
     return (
       <DashboardLayout
         navItems={adminNavItems}
         userType="admin"
-        userName={`${mockAdmin.firstName} ${mockAdmin.lastName}`}
-        userRole={mockAdmin.role.replace("_", " ")}
+        userName={adminInfo.name}
+        userRole={adminInfo.role}
       >
         <div className="flex flex-col items-center justify-center py-16">
           <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
@@ -105,44 +310,14 @@ export default function AdminTutorReview() {
     );
   }
 
-  const handleApprove = async () => {
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast({
-      title: "Tutor Approved",
-      description: `${tutor.firstName} ${tutor.lastName} has been approved and activated.`,
-    });
-    setIsProcessing(false);
-  };
-
-  const handleCheckIn = async () => {
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast({
-      title: "Check-in Complete",
-      description: `${tutor.firstName} ${tutor.lastName} has been checked in.`,
-    });
-    setIsProcessing(false);
-  };
-
-  const handleReject = async () => {
-    setIsProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast({
-      title: "Application Rejected",
-      description: `${tutor.firstName} ${tutor.lastName}'s application has been rejected.`,
-      variant: "destructive",
-    });
-    setIsProcessing(false);
-    setRejectDialogOpen(false);
-  };
+  const { tutor, documents, appointments, auditEvents } = data;
 
   return (
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
-      userName={`${mockAdmin.firstName} ${mockAdmin.lastName}`}
-      userRole={mockAdmin.role.replace("_", " ")}
+      userName={adminInfo.name}
+      userRole={adminInfo.role}
     >
       <div className="space-y-8">
         {/* Back button and header */}
@@ -167,32 +342,86 @@ export default function AdminTutorReview() {
                 <p className="text-muted-foreground">{tutor.email}</p>
               </div>
             </div>
-            <StatusBadge status={tutor.status} size="lg" />
+            <StatusBadge
+              status={mapStatus(tutor.tutorProfile?.status)}
+              size="lg"
+            />
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="card-elevated p-4">
           <div className="flex flex-wrap gap-3">
-            <Button onClick={handleCheckIn} disabled={isProcessing}>
-              <UserCheck className="w-4 h-4 mr-2" />
-              Check In
-            </Button>
-            <Button variant="outline">
-              <CalendarPlus className="w-4 h-4 mr-2" />
-              Schedule Appointment
-            </Button>
             <Button
               onClick={handleApprove}
-              disabled={isProcessing}
+              disabled={isProcessing || tutor.tutorProfile?.status === "active"}
               className="bg-status-active hover:bg-status-active/90"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Approve
             </Button>
+
+            {/* Schedule Appointment Dialog */}
+            <Dialog
+              open={scheduleDialogOpen}
+              onOpenChange={setScheduleDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  Schedule Appointment
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Schedule Appointment</DialogTitle>
+                  <DialogDescription>
+                    Schedule a verification appointment for {tutor.firstName}{" "}
+                    {tutor.lastName}.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input
+                      type="date"
+                      value={appointmentDate}
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time</Label>
+                    <Input
+                      type="time"
+                      value={appointmentTime}
+                      onChange={(e) => setAppointmentTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setScheduleDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleScheduleAppointment}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? "Scheduling..." : "Schedule"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Reject Dialog */}
             <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive">
+                <Button
+                  variant="destructive"
+                  disabled={tutor.tutorProfile?.status === "rejected"}
+                >
                   <XCircle className="w-4 h-4 mr-2" />
                   Reject
                 </Button>
@@ -233,7 +462,7 @@ export default function AdminTutorReview() {
 
         {/* Content Grid */}
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile Details */}
+          {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Contact Information */}
             <motion.div
@@ -284,9 +513,11 @@ export default function AdminTutorReview() {
                     <GraduationCap className="w-4 h-4 text-accent-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Education</p>
+                    <p className="text-sm text-muted-foreground">
+                      Degree Class
+                    </p>
                     <p className="font-medium">
-                      {tutor.education || "Not provided"}
+                      {tutor.tutorProfile?.degreeClass || "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -295,9 +526,23 @@ export default function AdminTutorReview() {
                     <Briefcase className="w-4 h-4 text-accent-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Experience</p>
+                    <p className="text-sm text-muted-foreground">Category</p>
+                    <p className="font-medium capitalize">
+                      {tutor.tutorProfile?.category?.replace("_", " ") ||
+                        "Not provided"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-accent">
+                    <Briefcase className="w-4 h-4 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Hourly Rate</p>
                     <p className="font-medium">
-                      {tutor.experience || "Not provided"}
+                      {tutor.tutorProfile?.hourlyRate
+                        ? `₦${tutor.tutorProfile.hourlyRate.toLocaleString()}`
+                        : "Not provided"}
                     </p>
                   </div>
                 </div>
@@ -305,35 +550,28 @@ export default function AdminTutorReview() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Subjects</p>
                   <div className="flex flex-wrap gap-2">
-                    {tutor.subjects.map((subject) => (
-                      <span
-                        key={subject}
-                        className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-sm"
-                      >
-                        {subject}
-                      </span>
-                    ))}
+                    {tutor.tutorProfile?.specialization?.length ? (
+                      tutor.tutorProfile.specialization.map((subject) => (
+                        <span
+                          key={subject}
+                          className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-sm"
+                        >
+                          {subject}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No subjects added.
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Skills</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tutor.skills.map((skill) => (
-                      <span
-                        key={skill}
-                        className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-sm"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                {tutor.bio && (
+                {tutor.tutorProfile?.bio && (
                   <>
                     <Separator />
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Bio</p>
-                      <p className="text-sm">{tutor.bio}</p>
+                      <p className="text-sm">{tutor.tutorProfile.bio}</p>
                     </div>
                   </>
                 )}
@@ -354,71 +592,95 @@ export default function AdminTutorReview() {
                 </h2>
               </div>
               <div className="divide-y divide-border">
-                {tutor.documents.map((doc) => {
-                  const statusConfig = documentStatusConfig[doc.status];
-                  const StatusIcon = statusConfig.icon;
-
-                  return (
-                    <div
-                      key={doc.id}
-                      className="p-4 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "p-2 rounded-lg",
-                            statusConfig.className,
-                          )}
-                        >
-                          <StatusIcon className="w-4 h-4" />
+                {documents.length > 0 ? (
+                  documents.map((document) => {
+                    const statusConfig =
+                      documentStatusConfig[document.status] ||
+                      documentStatusConfig.pending;
+                    const StatusIcon = statusConfig.icon;
+                    return (
+                      <div
+                        key={document.id}
+                        className="p-4 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={cn(
+                              "p-2 rounded-lg",
+                              statusConfig.className,
+                            )}
+                          >
+                            <StatusIcon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{document.fileName}</p>
+                            <p className="text-sm text-muted-foreground capitalize">
+                              {document.documentType.replace(/_/g, " ")} •{" "}
+                              {document.uploadedAt?.toDate
+                                ? new Date(
+                                    document.uploadedAt.toDate(),
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{doc.name}</p>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {doc.type.replace("_", " ")} • Uploaded{" "}
-                            {new Date(doc.uploadedAt).toLocaleDateString()}
-                          </p>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "text-xs font-medium px-2 py-1 rounded-full",
+                              statusConfig.className,
+                            )}
+                          >
+                            {statusConfig.label}
+                          </span>
+                          <a
+                            href={document.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button variant="ghost" size="sm">
+                              View
+                            </Button>
+                          </a>
+                          {document.status === "pending" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-status-active-foreground"
+                                onClick={() =>
+                                  handleApproveDocument(document.id)
+                                }
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-status-rejected-foreground"
+                                onClick={() =>
+                                  handleRejectDocument(document.id)
+                                }
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "text-xs font-medium px-2 py-1 rounded-full",
-                            statusConfig.className,
-                          )}
-                        >
-                          {statusConfig.label}
-                        </span>
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                        {doc.status === "pending" && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-status-active-foreground"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-status-rejected-foreground"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="p-6 text-center text-muted-foreground">
+                    <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No documents uploaded.</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
 
-          {/* Right Column - Timeline & Appointments */}
+          {/* Right Column */}
           <div className="space-y-6">
             {/* Appointments */}
             <motion.div
@@ -455,7 +717,10 @@ export default function AdminTutorReview() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(apt.date).toLocaleDateString()} at {apt.time}
+                        {apt.date?.toDate
+                          ? new Date(apt.date.toDate()).toLocaleDateString()
+                          : apt.date}{" "}
+                        at {apt.time}
                       </p>
                     </div>
                   ))
@@ -495,7 +760,11 @@ export default function AdminTutorReview() {
                             {event.description}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(event.timestamp).toLocaleString()}
+                            {event.timestamp?.toDate
+                              ? new Date(
+                                  event.timestamp.toDate(),
+                                ).toLocaleString()
+                              : "—"}
                             {event.adminName && ` • ${event.adminName}`}
                           </p>
                         </div>

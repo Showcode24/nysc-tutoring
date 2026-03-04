@@ -33,7 +33,7 @@ export function PublicHeader() {
             Home
           </Link>
           <Link
-            href="/register"
+            href="/signup"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Become a Tutor

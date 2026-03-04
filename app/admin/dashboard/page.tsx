@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -12,17 +13,16 @@ import {
   ArrowRight,
   Eye,
 } from "lucide-react";
-import {
-  mockDashboardMetrics,
-  mockTutors,
-  mockAppointments,
-  mockAdmin,
-} from "@/app/src/mock/data";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
 import { MetricCard } from "@/app/src/components/shared/metric-card";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import Link from "next/link";
+import {
+  fetchAdminDashboardData,
+  AdminDashboardData,
+} from "@/app/firebase/adminDashboardService";
+import { TutorStatus } from "@/app/src/types";
 
 const adminNavItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -32,18 +32,45 @@ const adminNavItems = [
   { label: "Audit Log", href: "/admin/audit", icon: History },
 ];
 
+function mapStatus(status: string): TutorStatus {
+  if (status === "pending_verification") return "pending";
+  return (status as TutorStatus) || "pending";
+}
+
 export default function AdminDashboard() {
-  const pendingTutors = mockTutors.filter((t) => t.status === "pending");
-  const todayAppointments = mockAppointments.filter(
-    (apt) => apt.status === "scheduled",
-  );
+  const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const result = await fetchAdminDashboardData();
+      setData(result);
+      setIsLoading(false);
+    };
+    load();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const adminName = data?.admin
+    ? `${data.admin.firstName} ${data.admin.lastName}`
+    : "";
+  const adminRole = data?.admin?.role?.replace(/_/g, " ") || "admin";
 
   return (
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
-      userName={`${mockAdmin.firstName} ${mockAdmin.lastName}`}
-      userRole={mockAdmin.role.replace("_", " ")}
+      userName={adminName}
+      userRole={adminRole}
     >
       <div className="space-y-8">
         {/* Page Header */}
@@ -55,7 +82,7 @@ export default function AdminDashboard() {
             </p>
           </div>
           <span className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium capitalize">
-            {mockAdmin.role.replace("_", " ")}
+            {adminRole}
           </span>
         </div>
 
@@ -63,27 +90,25 @@ export default function AdminDashboard() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Tutors"
-            value={mockDashboardMetrics.totalTutors}
+            value={data?.metrics.totalTutors || 0}
             icon={Users}
-            trend={{ value: 12, isPositive: true }}
-            description="vs last month"
+            description="registered"
           />
           <MetricCard
             title="Pending Reviews"
-            value={mockDashboardMetrics.pendingTutors}
+            value={data?.metrics.pendingTutors || 0}
             icon={ClipboardList}
             description="awaiting action"
           />
           <MetricCard
             title="Active Tutors"
-            value={mockDashboardMetrics.activeTutors}
+            value={data?.metrics.activeTutors || 0}
             icon={UserPlus}
-            trend={{ value: 8, isPositive: true }}
-            description="vs last month"
+            description="verified"
           />
           <MetricCard
             title="Today's Appointments"
-            value={mockDashboardMetrics.appointmentsToday}
+            value={data?.metrics.appointmentsToday || 0}
             icon={Calendar}
             description="scheduled"
           />
@@ -108,38 +133,48 @@ export default function AdminDashboard() {
               </div>
 
               <div className="divide-y divide-border">
-                {pendingTutors.slice(0, 4).map((tutor, index) => (
-                  <motion.div
-                    key={tutor.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="p-4 hover:bg-accent/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
-                        {tutor.firstName[0]}
-                        {tutor.lastName[0]}
+                {data?.pendingTutors && data.pendingTutors.length > 0 ? (
+                  data.pendingTutors.map((tutor, index) => (
+                    <motion.div
+                      key={tutor.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="p-4 hover:bg-accent/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
+                          {tutor.firstName[0]}
+                          {tutor.lastName[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">
+                            {tutor.firstName} {tutor.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {tutor.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <StatusBadge
+                            status={mapStatus(tutor.status)}
+                            size="sm"
+                          />
+                          <Link href={`/admin/tutors/${tutor.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">
-                          {tutor.firstName} {tutor.lastName}
-                        </p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {tutor.email}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={tutor.status} size="sm" />
-                        <Link href={`/admin/tutors/${tutor.id}`}>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No pending tutors</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -159,30 +194,30 @@ export default function AdminDashboard() {
             </div>
 
             <div className="divide-y divide-border">
-              {todayAppointments.slice(0, 4).map((apt, index) => (
-                <motion.div
-                  key={apt.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-accent">
-                      <Clock className="w-4 h-4 text-accent-foreground" />
+              {data?.todayAppointments && data.todayAppointments.length > 0 ? (
+                data.todayAppointments.map((apt, index) => (
+                  <motion.div
+                    key={apt.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-accent">
+                        <Clock className="w-4 h-4 text-accent-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{apt.tutorName}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {apt.type.replace("_", " ")}
+                        </p>
+                      </div>
+                      <span className="text-sm font-medium">{apt.time}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{apt.tutorName}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {apt.type.replace("_", " ")}
-                      </p>
-                    </div>
-                    <span className="text-sm font-medium">{apt.time}</span>
-                  </div>
-                </motion.div>
-              ))}
-
-              {todayAppointments.length === 0 && (
+                  </motion.div>
+                ))
+              ) : (
                 <div className="p-8 text-center text-muted-foreground">
                   <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No appointments today</p>

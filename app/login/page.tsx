@@ -6,47 +6,101 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { loginUser } from "@/app/firebase/loginService";
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [tutorEmail, setTutorEmail] = useState("");
+  const [tutorPassword, setTutorPassword] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [tutorError, setTutorError] = useState("");
+  const [adminError, setAdminError] = useState("");
 
   const handleTutorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTutorError("");
     setIsLoading(true);
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const result = await loginUser(tutorEmail, tutorPassword);
 
-    toast({
-      title: "Welcome back!",
-      description: "You have successfully signed in.",
-    });
+      // Check notRegistered BEFORE the generic !result.success check
+      if (result.notRegistered) {
+        setIsLoading(false);
+        router.push("/register");
+        return;
+      }
 
-    setIsLoading(false);
-    router.push("/tutor/dashboard");
+      if (!result.success) {
+        setTutorError(result.error || "Login failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!result.verified) {
+        toast({
+          title: "Email Verification Required",
+          description:
+            "Please verify your email before accessing your account.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        router.push(`/verify-email?email=${encodeURIComponent(tutorEmail)}`);
+        return;
+      }
+
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+      setIsLoading(false);
+      router.push("/tutor/dashboard");
+    } catch (error) {
+      setTutorError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAdminError("");
     setIsLoading(true);
 
-    // Simulate login
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const result = await loginUser(adminEmail, adminPassword);
 
-    toast({
-      title: "Welcome back!",
-      description: "You have successfully signed in.",
-    });
+      if (!result.success) {
+        setAdminError(result.error || "Login failed. Please try again.");
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(false);
-    router.push("/admin/dashboard");
+      if (result.role !== "admin" && result.role !== "super_admin") {
+        setAdminError("This account does not have admin access.");
+        setIsLoading(false);
+        return;
+      }
+
+      // No email verification check — admins bypass this
+      toast({
+        title: "Welcome back, Admin!",
+        description: "You have successfully signed in.",
+      });
+
+      setIsLoading(false);
+      router.push("/admin/dashboard");
+    } catch (error) {
+      setAdminError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,32 +127,45 @@ export default function LoginPage() {
 
               <TabsContent value="tutor">
                 <form onSubmit={handleTutorLogin} className="space-y-4">
+                  {tutorError && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                      <p className="text-sm text-destructive">{tutorError}</p>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="tutor-email">Email</Label>
                     <Input
                       id="tutor-email"
                       type="email"
                       placeholder="you@example.com"
+                      value={tutorEmail}
+                      onChange={(e) => setTutorEmail(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="tutor-password">Password</Label>
-                      <a
-                        href="#"
+                      <Link
+                        href="/auth/forgot-password"
                         className="text-sm text-primary hover:underline"
                       >
                         Forgot password?
-                      </a>
+                      </Link>
                     </div>
                     <div className="relative">
                       <Input
                         id="tutor-password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
+                        value={tutorPassword}
+                        onChange={(e) => setTutorPassword(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -106,6 +173,7 @@ export default function LoginPage() {
                         size="icon"
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
+                        disabled={isLoading}
                       >
                         {showPassword ? (
                           <EyeOff className="w-4 h-4 text-muted-foreground" />
@@ -137,13 +205,23 @@ export default function LoginPage() {
 
               <TabsContent value="admin">
                 <form onSubmit={handleAdminLogin} className="space-y-4">
+                  {adminError && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                      <p className="text-sm text-destructive">{adminError}</p>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="admin-email">Admin Email</Label>
                     <Input
                       id="admin-email"
                       type="email"
                       placeholder="admin@Kopa360.com"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
                       required
+                      disabled={isLoading}
                     />
                   </div>
 
@@ -154,7 +232,10 @@ export default function LoginPage() {
                         id="admin-password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                       <Button
                         type="button"
@@ -162,6 +243,7 @@ export default function LoginPage() {
                         size="icon"
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
+                        disabled={isLoading}
                       >
                         {showPassword ? (
                           <EyeOff className="w-4 h-4 text-muted-foreground" />

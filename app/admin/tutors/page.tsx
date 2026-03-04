@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,12 +27,13 @@ import {
   Filter,
   Briefcase,
 } from "lucide-react";
-import { mockTutors, mockAdmin } from "@/app/src/mock/data";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import { TutorStatus } from "@/app/src/types";
 import Link from "next/link";
+import { auth } from "@/app/firebase/firebase";
+import { fetchAllTutors, TutorRecord } from "@/app/firebase/adminTutorService";
 
 const adminNavItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -42,28 +43,65 @@ const adminNavItems = [
   { label: "Audit Log", href: "/admin/audit", icon: History },
 ];
 
+function mapStatus(status: string): TutorStatus {
+  if (status === "pending_verification") return "pending";
+  return (status as TutorStatus) || "pending";
+}
+
 export default function AdminTutors() {
+  const [tutors, setTutors] = useState<TutorRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TutorStatus | "all">("all");
+  const [adminName, setAdminName] = useState("");
 
-  const filteredTutors = mockTutors.filter((tutor) => {
+  useEffect(() => {
+    const load = async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const { getDoc, doc } = await import("firebase/firestore");
+        const { db } = await import("@/app/firebase/firebase");
+        const adminDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (adminDoc.exists()) {
+          const data = adminDoc.data();
+          setAdminName(`${data.firstName} ${data.lastName}`);
+        }
+      }
+      const result = await fetchAllTutors();
+      setTutors(result);
+      setIsLoading(false);
+    };
+    load();
+  }, []);
+
+  const filteredTutors = tutors.filter((tutor) => {
     const matchesSearch =
       tutor.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tutor.email.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const mappedStatus = mapStatus(tutor.status);
     const matchesStatus =
-      statusFilter === "all" || tutor.status === statusFilter;
+      statusFilter === "all" || mappedStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
+
+  if (isLoading) {
+    return (
+      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
-      userName={`${mockAdmin.firstName} ${mockAdmin.lastName}`}
-      userRole={mockAdmin.role.replace("_", " ")}
+      userName={adminName}
     >
       <div className="space-y-8">
         {/* Page Header */}
@@ -149,7 +187,7 @@ export default function AdminTutors() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {tutor.subjects.slice(0, 2).map((subject) => (
+                      {tutor.specialization.slice(0, 2).map((subject) => (
                         <span
                           key={subject}
                           className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs"
@@ -157,15 +195,15 @@ export default function AdminTutors() {
                           {subject}
                         </span>
                       ))}
-                      {tutor.subjects.length > 2 && (
+                      {tutor.specialization.length > 2 && (
                         <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs">
-                          +{tutor.subjects.length - 2}
+                          +{tutor.specialization.length - 2}
                         </span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={tutor.status} size="sm" />
+                    <StatusBadge status={mapStatus(tutor.status)} size="sm" />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -181,11 +219,12 @@ export default function AdminTutors() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(tutor.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {tutor.createdAt?.toDate
+                      ? new Date(tutor.createdAt.toDate()).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Link href={`/admin/tutor-review/${tutor.id}`}>
