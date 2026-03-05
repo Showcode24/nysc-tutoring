@@ -1,8 +1,7 @@
-
-import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import Link from "next/link";
 export function CTASection() {
   return (
     <section className="py-20 md:py-28">
@@ -20,18 +19,26 @@ export function CTASection() {
               Ready to Start Teaching?
             </h2>
             <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-              Join thousands of verified tutors on Copper360 and start making an 
+              Join thousands of verified tutors on Kopa360 and start making an
               impact today.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/register">
-                <Button size="lg" variant="secondary" className="min-w-[200px] h-12 text-base">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="min-w-[200px] h-12 text-base"
+                >
                   Apply Now
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
               </Link>
               <Link href="/login">
-                <Button size="lg" variant="ghost" className="min-w-[200px] h-12 text-base text-primary-foreground border border-primary-foreground/20 hover:bg-primary-foreground/10">
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="min-w-[200px] h-12 text-base text-primary-foreground border border-primary-foreground/20 hover:bg-primary-foreground/10"
+                >
                   Sign In
                 </Button>
               </Link>

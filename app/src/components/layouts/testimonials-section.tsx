@@ -1,26 +1,29 @@
-import { motion } from 'framer-motion';
-import { Star, Quote } from 'lucide-react';
+import { motion } from "framer-motion";
+import { Star, Quote } from "lucide-react";
 const testimonials = [
   {
-    name: 'Thabo Mokoena',
-    role: 'Mathematics Tutor',
-    quote: 'Copper360 has transformed my tutoring career. The platform connects me with students who genuinely need help, and the verification process means parents trust me from day one.',
+    name: "Emeka Okafor",
+    role: "Mathematics Tutor",
+    quote:
+      "Kopa360 has transformed my tutoring career. The platform connects me with students who genuinely need help, and the verification process means parents trust me from day one.",
     rating: 5,
-    sessions: '320+ sessions',
+    sessions: "320+ sessions",
   },
   {
-    name: 'Naledi Dlamini',
-    role: 'English & Literature Tutor',
-    quote: 'The flexibility is incredible. I can choose gigs that fit my schedule and expertise. The compensation is fair and payments are always on time.',
+    name: "Chidinma Adeyemi",
+    role: "English & Literature Tutor",
+    quote:
+      "The flexibility is incredible. I can choose gigs that fit my schedule and expertise. The compensation is fair and payments are always on time.",
     rating: 5,
-    sessions: '480+ sessions',
+    sessions: "480+ sessions",
   },
   {
-    name: 'James van der Merwe',
-    role: 'Science Tutor',
-    quote: 'As a retired teacher, Copper360 lets me continue making an impact. The platform is professional, easy to use, and the support team is always responsive.',
+    name: "Babatunde Fashola",
+    role: "Science Tutor",
+    quote:
+      "As a retired teacher, Kopa360 lets me continue making an impact. The platform is professional, easy to use, and the support team is always responsive.",
     rating: 5,
-    sessions: '195+ sessions',
+    sessions: "195+ sessions",
   },
 ];
 export function TestimonialsSection() {
@@ -51,7 +54,8 @@ export function TestimonialsSection() {
             transition={{ delay: 0.1 }}
             className="text-lg text-muted-foreground max-w-2xl mx-auto"
           >
-            Hear from verified tutors who have built successful careers on our platform.
+            Hear from verified tutors who have built successful careers on our
+            platform.
           </motion.p>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
@@ -65,7 +69,7 @@ export function TestimonialsSection() {
               className="relative p-8 rounded-2xl border border-border bg-card hover:shadow-[var(--shadow-card-hover)] transition-all duration-300"
             >
               <Quote className="w-8 h-8 text-primary/20 mb-4" />
-              
+
               <p className="text-muted-foreground mb-6 leading-relaxed">
                 "{t.quote}"
               </p>
@@ -74,7 +78,7 @@ export function TestimonialsSection() {
                   <Star key={j} className="w-4 h-4 fill-primary text-primary" />
                 ))}
               </div>
-              
+
               <div className="flex items-center justify-between border-t border-border pt-4">
                 <div>
                   <div className="font-semibold text-sm">{t.name}</div>

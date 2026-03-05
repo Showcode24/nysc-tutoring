@@ -36,7 +36,7 @@ export function BenefitsSection() {
               For Tutors
             </span>
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
-              Why Tutors Choose Copper360
+              Why Tutors Choose Kopa360
             </h2>
             <p className="text-lg text-muted-foreground mb-8">
               We provide the infrastructure, support, and opportunities you need
