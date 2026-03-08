@@ -183,6 +183,21 @@ export default function RegisterPage() {
   };
 
   const handleNext = () => {
+    if (!isCurrentStepComplete()) {
+      const stepName = [
+        "",
+        "Personal Information",
+        "Qualifications",
+        "Documents",
+        "Verification",
+      ][currentStep];
+      toast({
+        title: `Complete ${stepName}`,
+        description: "Please fill in all required fields before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (currentStep < 4) setCurrentStep(currentStep + 1);
   };
 
@@ -276,6 +291,52 @@ export default function RegisterPage() {
         ? prev.subjects.filter((s) => s !== subject)
         : [...prev.subjects, subject],
     }));
+  };
+
+  // Validation functions for each step
+  const isStep1Complete = () => {
+    return (
+      formData.firstName.trim() !== "" &&
+      formData.lastName.trim() !== "" &&
+      formData.email.trim() !== "" &&
+      formData.phone.trim() !== "" &&
+      formData.location.trim() !== ""
+    );
+  };
+
+  const isStep2Complete = () => {
+    return (
+      formData.education.trim() !== "" &&
+      formData.degreeClass.trim() !== "" &&
+      formData.subjects.length > 0 &&
+      formData.hourlyRate.trim() !== "" &&
+      parseFloat(formData.hourlyRate) > 0
+    );
+  };
+
+  const isStep3Complete = () => {
+    return (
+      Object.keys(uploadedFiles).length === 3 // All 3 documents must be uploaded
+    );
+  };
+
+  const isStep4Complete = () => {
+    return formData.agreedToTerms;
+  };
+
+  const isCurrentStepComplete = () => {
+    switch (currentStep) {
+      case 1:
+        return isStep1Complete();
+      case 2:
+        return isStep2Complete();
+      case 3:
+        return isStep3Complete();
+      case 4:
+        return isStep4Complete();
+      default:
+        return false;
+    }
   };
 
   // Success screen
@@ -810,7 +871,7 @@ export default function RegisterPage() {
             )}
 
             {currentStep < 4 ? (
-              <Button onClick={handleNext}>
+              <Button onClick={handleNext} disabled={!isCurrentStepComplete()}>
                 Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>

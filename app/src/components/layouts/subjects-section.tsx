@@ -121,7 +121,7 @@ export function SubjectsSection() {
               across every discipline.
             </motion.p>
           </div>
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -130,7 +130,7 @@ export function SubjectsSection() {
               View All Subjects
               <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Button>
-          </motion.div>
+          </motion.div> */}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {subjects.map((subject, i) => (
