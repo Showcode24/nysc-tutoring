@@ -1,14 +1,80 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/app/firebase/firebase";
+
+type AuthStatus =
+  | "unauthenticated"
+  | "authenticated_unregistered"
+  | "authenticated_registered";
+type LoadingAction = "signin" | "started" | null;
+
+function getAuthStatus(): Promise<AuthStatus> {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      unsubscribe();
+
+      if (!firebaseUser) {
+        resolve("unauthenticated");
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", firebaseUser.uid));
+        resolve(
+          userSnap.exists()
+            ? "authenticated_registered"
+            : "authenticated_unregistered",
+        );
+      } catch {
+        resolve("authenticated_unregistered");
+      }
+    });
+  });
+}
 
 export function PublicHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
+  const router = useRouter();
+
+  // "Sign In" — goes to dashboard if registered, otherwise /login
+  const handleSignIn = useCallback(async () => {
+    setLoadingAction("signin");
+    try {
+      const status = await getAuthStatus();
+      router.push(
+        status === "authenticated_registered" ? "/tutor/dashboard" : "/login",
+      );
+    } finally {
+      setLoadingAction(null);
+      setMenuOpen(false);
+    }
+  }, [router]);
+
+  // "Get Started" — three-way: dashboard / register / signup
+  const handleGetStarted = useCallback(async () => {
+    setLoadingAction("started");
+    try {
+      const status = await getAuthStatus();
+      if (status === "authenticated_registered")
+        router.push("/tutor/dashboard");
+      else if (status === "authenticated_unregistered")
+        router.push("/register");
+      else router.push("/signup");
+    } finally {
+      setLoadingAction(null);
+      setMenuOpen(false);
+    }
+  }, [router]);
 
   return (
     <header className="w-full bg-background/95 border-b border-border/50 sticky top-0 z-50">
@@ -32,21 +98,39 @@ export function PublicHeader() {
           >
             Home
           </Link>
-          <Link
+          {/* <Link
             href="/signup"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Become a Tutor
-          </Link>
-          <Link href="/login">
-            <Button variant="outline" size="sm">
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button size="sm">Get Started</Button>
-          </Link>
+          </Link> */}
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loadingAction !== null}
+            onClick={handleSignIn}
+          >
+            {loadingAction === "signin" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Sign In"
+            )}
+          </Button>
+
+          <Button
+            size="sm"
+            disabled={loadingAction !== null}
+            onClick={handleGetStarted}
+          >
+            {loadingAction === "started" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Get Started"
+            )}
+          </Button>
         </nav>
+        {/* ← closing tag that was missing */}
 
         {/* Mobile menu button */}
         <Button
@@ -76,30 +160,38 @@ export function PublicHeader() {
               >
                 Home
               </Link>
-              <Link
-                href="/register"
+              {/* <Link
+                href="/signup"
                 className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-accent"
                 onClick={() => setMenuOpen(false)}
               >
                 Become a Tutor
-              </Link>
+              </Link> */}
               <div className="flex gap-2 mt-2">
-                <Link
-                  href="/login"
+                <Button
+                  variant="outline"
                   className="flex-1"
-                  onClick={() => setMenuOpen(false)}
+                  disabled={loadingAction !== null}
+                  onClick={handleSignIn}
                 >
-                  <Button variant="outline" className="w-full">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link
-                  href="/register"
+                  {loadingAction === "signin" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Sign In"
+                  )}
+                </Button>
+
+                <Button
                   className="flex-1"
-                  onClick={() => setMenuOpen(false)}
+                  disabled={loadingAction !== null}
+                  onClick={handleGetStarted}
                 >
-                  <Button className="w-full">Get Started</Button>
-                </Link>
+                  {loadingAction === "started" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Get Started"
+                  )}
+                </Button>
               </div>
             </nav>
           </motion.div>

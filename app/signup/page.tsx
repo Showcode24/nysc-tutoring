@@ -13,6 +13,7 @@ import { Eye, EyeOff, ArrowRight, Chrome, MailCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import { PublicLayout } from "../src/components/layouts/public-layout";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -200,192 +201,194 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Join Kopa360</h1>
-          <p className="text-muted-foreground">
-            Start your journey as a tutor today
-          </p>
-        </div>
+    <PublicLayout showFooter={false}>
+      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold mb-2">Join Kopa360</h1>
+            <p className="text-muted-foreground">
+              Start your journey as a tutor today
+            </p>
+          </div>
 
-        <div className="card-elevated p-6 md:p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, email: e.target.value }))
-                }
-                required
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative">
+          <div className="card-elevated p-6 md:p-8">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email Field */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address *</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={handlePasswordChange}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
-
-              {formData.password && passwordErrors.length > 0 && (
-                <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-900">
-                  <p className="text-xs font-medium text-red-900 dark:text-red-200 mb-1">
-                    Password must include:
-                  </p>
-                  <ul className="text-xs text-red-800 dark:text-red-300 space-y-1">
-                    {passwordErrors.map((error, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-red-500">•</span>
-                        <span>{error}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {formData.password && passwordErrors.length === 0 && (
-                <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-900">
-                  <p className="text-xs font-medium text-green-900 dark:text-green-200">
-                    ✓ Password is strong
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password Field */}
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password *</Label>
-              <div className="relative">
-                <Input
-                  id="confirm-password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Re-enter your password"
-                  value={formData.confirmPassword}
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={formData.email}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      confirmPassword: e.target.value,
-                    }))
+                    setFormData((prev) => ({ ...prev, email: e.target.value }))
                   }
                   required
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </Button>
               </div>
 
-              {formData.confirmPassword &&
-                formData.password !== formData.confirmPassword && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    Passwords do not match
-                  </p>
+              {/* Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="password">Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+
+                {formData.password && passwordErrors.length > 0 && (
+                  <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-900">
+                    <p className="text-xs font-medium text-red-900 dark:text-red-200 mb-1">
+                      Password must include:
+                    </p>
+                    <ul className="text-xs text-red-800 dark:text-red-300 space-y-1">
+                      {passwordErrors.map((error, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-red-500">•</span>
+                          <span>{error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
-              {formData.confirmPassword &&
-                formData.password === formData.confirmPassword &&
-                formData.password && (
-                  <p className="text-xs text-green-600 dark:text-green-400">
-                    ✓ Passwords match
-                  </p>
+                {formData.password && passwordErrors.length === 0 && (
+                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-900">
+                    <p className="text-xs font-medium text-green-900 dark:text-green-200">
+                      ✓ Password is strong
+                    </p>
+                  </div>
                 )}
+              </div>
+
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        confirmPassword: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+
+                {formData.confirmPassword &&
+                  formData.password !== formData.confirmPassword && (
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      Passwords do not match
+                    </p>
+                  )}
+
+                {formData.confirmPassword &&
+                  formData.password === formData.confirmPassword &&
+                  formData.password && (
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      ✓ Passwords match
+                    </p>
+                  )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading || passwordErrors.length > 0}
+              >
+                {isLoading ? "Creating Account..." : "Sign Up"}
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
             </div>
 
             <Button
-              type="submit"
+              type="button"
+              variant="outline"
               className="w-full"
-              disabled={isLoading || passwordErrors.length > 0}
+              onClick={handleGoogleSignUp}
+              disabled={isGoogleLoading}
             >
-              {isLoading ? "Creating Account..." : "Sign Up"}
-              <ArrowRight className="ml-2 w-4 h-4" />
+              <Chrome className="w-4 h-4 mr-2" />
+              {isGoogleLoading ? "Signing up..." : "Sign up with Google"}
             </Button>
-          </form>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">
+                Already have an account?{" "}
               </span>
+              <Link
+                href="/login"
+                className="text-primary hover:underline font-medium"
+              >
+                Sign in
+              </Link>
             </div>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleSignUp}
-            disabled={isGoogleLoading}
-          >
-            <Chrome className="w-4 h-4 mr-2" />
-            {isGoogleLoading ? "Signing up..." : "Sign up with Google"}
-          </Button>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              Already have an account?{" "}
-            </span>
-            <Link
-              href="/login"
-              className="text-primary hover:underline font-medium"
-            >
-              Sign in
-            </Link>
-          </div>
-        </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          By signing up, you agree to our{" "}
-          <a href="#" className="underline hover:text-foreground">
-            Terms of Service
-          </a>{" "}
-          and{" "}
-          <a href="#" className="underline hover:text-foreground">
-            Privacy Policy
-          </a>
-        </p>
-      </motion.div>
-    </div>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            By signing up, you agree to our{" "}
+            <a href="#" className="underline hover:text-foreground">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="#" className="underline hover:text-foreground">
+              Privacy Policy
+            </a>
+          </p>
+        </motion.div>
+      </div>
+    </PublicLayout>
   );
 }
