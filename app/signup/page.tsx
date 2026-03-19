@@ -353,7 +353,7 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            <Button
+            {/* <Button
               type="button"
               variant="outline"
               className="w-full"
@@ -362,7 +362,7 @@ export default function SignUpPage() {
             >
               <Chrome className="w-4 h-4 mr-2" />
               {isGoogleLoading ? "Signing up..." : "Sign up with Google"}
-            </Button>
+            </Button> */}
 
             <div className="mt-6 text-center text-sm">
               <span className="text-muted-foreground">
