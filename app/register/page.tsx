@@ -42,16 +42,16 @@ const steps = [
 ];
 
 const degreeClasses = [
-  "First Class",
-  "Second Class Upper",
-  "Second Class Lower",
-  "Third Class",
+  "First Class / Distinction",
+  "Second Class Upper / Upper Credit",
+  "Second Class Lower / Lower Credit",
+  "Third Class / Pass",
   "Pass",
 ];
 
 const degreeClassToTeaching = {
-  "First Class": {
-    category: "Academic Subjects",
+  "First Class / Distinction": {
+    category: "Academic Subjects & Digital Skills",
     subjects: [
       "Mathematics",
       "Physics",
@@ -62,10 +62,17 @@ const degreeClassToTeaching = {
       "History",
       "Geography",
       "Economics",
+      "Web Development",
+      "Mobile App Development",
+      "Data Science",
+      "UI/UX Design",
+      "Digital Marketing",
+      "Cloud Computing",
+      "Cybersecurity",
     ],
   },
-  "Second Class Upper": {
-    category: "Academic Subjects",
+  "Second Class Upper / Upper Credit": {
+    category: "Academic Subjects & Digital Skills",
     subjects: [
       "Mathematics",
       "Physics",
@@ -76,9 +83,16 @@ const degreeClassToTeaching = {
       "History",
       "Geography",
       "Economics",
+      "Web Development",
+      "Mobile App Development",
+      "Data Science",
+      "UI/UX Design",
+      "Digital Marketing",
+      "Cloud Computing",
+      "Cybersecurity",
     ],
   },
-  "Second Class Lower": {
+  "Second Class Lower / Lower Credit": {
     category: "Digital Skills",
     subjects: [
       "Web Development",
@@ -90,7 +104,7 @@ const degreeClassToTeaching = {
       "Cybersecurity",
     ],
   },
-  "Third Class": {
+  "Third Class / Pass": {
     category: "Digital Skills",
     subjects: [
       "Web Development",
@@ -102,7 +116,7 @@ const degreeClassToTeaching = {
       "Cybersecurity",
     ],
   },
-  Pass: {
+  "Pass": {
     category: "Digital Skills",
     subjects: [
       "Web Development",
@@ -315,9 +329,7 @@ export default function RegisterPage() {
   };
 
   const isStep3Complete = () => {
-    return (
-      Object.keys(uploadedFiles).length === 3 // All 3 documents must be uploaded
-    );
+    return !!uploadedFiles["id"] && !!uploadedFiles["degree"]; // Professional cert is optional
   };
 
   const isStep4Complete = () => {
@@ -711,17 +723,20 @@ export default function RegisterPage() {
                       id: "id",
                       label: "Government-issued ID",
                       description: "Passport, driver's license, or national ID",
+                      required: true,
                     },
                     {
                       id: "degree",
                       label: "Degree Certificate",
                       description: "Your highest education qualification",
+                      required: true,
                     },
                     {
                       id: "cert",
                       label: "Professional Certificate",
                       description:
                         "Teaching certification or other credentials",
+                      required: false,
                     },
                   ].map((doc) => (
                     <div
@@ -730,9 +745,20 @@ export default function RegisterPage() {
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex-1">
-                          <label className="font-medium text-sm">
-                            {doc.label}
-                          </label>
+                          <div className="flex items-center gap-2">
+                            <label className="font-medium text-sm">
+                              {doc.label}
+                            </label>
+                            {doc.required ? (
+                              <span className="text-xs font-medium text-destructive">
+                                Required
+                              </span>
+                            ) : (
+                              <span className="text-xs font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                Optional
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {doc.description}
                           </p>
