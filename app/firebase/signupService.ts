@@ -1,16 +1,46 @@
 import { auth, db } from "./firebase";
 import {
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { doc, setDoc, Timestamp, getDoc } from "firebase/firestore";
-import bcrypt from "bcryptjs";
 
 interface SignUpData {
   email: string;
   password: string;
+}
+
+// ─────────────────────────────────────────────
+//  Maps Firebase Auth error codes to plain messages
+// ─────────────────────────────────────────────
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "This email is already registered. Please sign in instead.";
+    case "auth/weak-password":
+      return "Password is too weak. Please use at least 6 characters.";
+    case "auth/invalid-email":
+      return "The email address is not valid. Please check and try again.";
+    case "auth/operation-not-allowed":
+      return "Email/password sign up is not enabled. Please contact support.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a few minutes and try again.";
+    case "auth/network-request-failed":
+      return "Network error. Please check your internet connection and try again.";
+    case "auth/user-disabled":
+      return "This account has been disabled. Please contact support.";
+    case "auth/popup-closed-by-user":
+      return "Sign up was cancelled. Please try again.";
+    case "auth/popup-blocked":
+      return "Pop-up was blocked by your browser. Please allow pop-ups and try again.";
+    case "auth/cancelled-popup-request":
+      return "Sign up was cancelled. Please try again.";
+    case "auth/account-exists-with-different-credential":
+      return "An account already exists with this email using a different sign-in method. Try signing in with Google instead.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
 }
 
 export async function signUpWithEmail(data: SignUpData) {
@@ -24,15 +54,26 @@ export async function signUpWithEmail(data: SignUpData) {
 
     const user = userCredential.user;
 
-    // 2️⃣ Send email verification
+    // 2️⃣ Send verification email via Resend (non-blocking)
     try {
-      await sendEmailVerification(user, {
-        url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login`,
+      const res = await fetch("/api/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email }),
       });
-      console.log("[v0] Email verification sent successfully to:", user.email);
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("[signupService] Verification email failed:", err);
+      } else {
+        console.log("[signupService] Verification email sent to:", user.email);
+      }
     } catch (emailError: any) {
-      console.error("[v0] Email verification failed:", emailError);
-      throw new Error(`Email verification failed: ${emailError.message}`);
+      // Non-blocking — account is created, user can request a resend later
+      console.error(
+        "[signupService] Verification email error (non-blocking):",
+        emailError,
+      );
     }
 
     // 3️⃣ Create user document in Firestore
@@ -56,11 +97,11 @@ export async function signUpWithEmail(data: SignUpData) {
       updatedAt: Timestamp.now(),
       accountType: "tutor",
       status: "pending",
-      verified: false, // Remains false until user clicks verification link
+      verified: false,
       profileComplete: false,
     });
 
-    // 4️⃣ Optional: sign out user until email verified
+    // 4️⃣ Sign out until email verified
     await auth.signOut();
 
     return {
@@ -71,35 +112,20 @@ export async function signUpWithEmail(data: SignUpData) {
         "Account created successfully! A verification email has been sent. Please verify your email before logging in.",
     };
   } catch (error: any) {
-    console.error("[v0] Signup error:", error);
-
-    // Firebase Auth error handling
-    if (error.code === "auth/email-already-in-use") {
-      return {
-        success: false,
-        message:
-          "This email is already registered. Please use another email or sign in.",
-      };
-    } else if (error.code === "auth/weak-password") {
-      return {
-        success: false,
-        message: "Password is too weak. Please use at least 6 characters.",
-      };
-    } else if (error.code === "auth/invalid-email") {
-      return {
-        success: false,
-        message: "Invalid email address.",
-      };
-    }
+    console.error("[signupService] Signup error:", error.code, error.message);
 
     return {
       success: false,
-      message: error.message || "Failed to create account",
+      message: error.code
+        ? getFirebaseErrorMessage(error.code)
+        : error.message || "Failed to create account. Please try again.",
     };
   }
 }
 
-// Google signup remains the same (no email verification needed)
+// ─────────────────────────────────────────────
+//  GOOGLE SIGN-UP
+// ─────────────────────────────────────────────
 export async function signUpWithGoogle() {
   try {
     const provider = new GoogleAuthProvider();
@@ -130,7 +156,7 @@ export async function signUpWithGoogle() {
         updatedAt: Timestamp.now(),
         accountType: "tutor",
         status: "pending",
-        verified: true, // Google accounts are already verified
+        verified: true,
         profileComplete: false,
       },
       { merge: true },
@@ -144,20 +170,24 @@ export async function signUpWithGoogle() {
       message: "Signed up with Google successfully",
     };
   } catch (error: any) {
-    console.error("[v0] Google signup error:", error);
-
-    if (error.code === "auth/popup-closed-by-user") {
-      return { success: false, message: "Sign up was cancelled" };
-    }
+    console.error(
+      "[signupService] Google signup error:",
+      error.code,
+      error.message,
+    );
 
     return {
       success: false,
-      message: error.message || "Failed to sign up with Google",
+      message: error.code
+        ? getFirebaseErrorMessage(error.code)
+        : error.message || "Failed to sign up with Google. Please try again.",
     };
   }
 }
 
-// Sync Firebase email verification status to Firestore
+// ─────────────────────────────────────────────
+//  SYNC FIREBASE VERIFICATION → FIRESTORE
+// ─────────────────────────────────────────────
 export async function syncVerificationToFirestore(
   uid: string,
 ): Promise<boolean> {
@@ -165,53 +195,43 @@ export async function syncVerificationToFirestore(
     const user = auth.currentUser;
 
     if (!user) {
-      console.log("[v0] No user logged in");
+      console.log("[signupService] No user logged in");
       return false;
     }
 
-    // Reload to get latest verification status from Firebase Auth
     await user.reload();
 
     if (user.emailVerified) {
-      // Update Firestore verified flag to true
       const userDocRef = doc(db, "users", uid);
       await setDoc(
         userDocRef,
         { verified: true, updatedAt: Timestamp.now() },
         { merge: true },
       );
-      console.log(
-        "[v0] Firestore verified flag updated to true for user:",
-        uid,
-      );
+      console.log("[signupService] Firestore verified flag updated for:", uid);
       return true;
     }
 
     return false;
   } catch (error) {
-    console.error("[v0] Error syncing verification to Firestore:", error);
+    console.error("[signupService] Error syncing verification:", error);
     return false;
   }
 }
 
-// Check if user's email is verified (IMPORTANT: Use this before allowing access to protected features)
+// ─────────────────────────────────────────────
+//  CHECK EMAIL VERIFIED (Firebase Auth)
+// ─────────────────────────────────────────────
 export async function isEmailVerified(): Promise<boolean> {
   const user = auth.currentUser;
 
   if (!user) {
-    console.log("[v0] No user logged in");
+    console.log("[signupService] No user logged in");
     return false;
   }
 
-  // Reload to get latest verification status
   await user.reload();
 
-  console.log("[v0] Email verification status:", {
-    email: user.email,
-    emailVerified: user.emailVerified,
-  });
-
-  // If Firebase says verified, sync it to Firestore
   if (user.emailVerified) {
     await syncVerificationToFirestore(user.uid);
   }
@@ -219,7 +239,9 @@ export async function isEmailVerified(): Promise<boolean> {
   return user.emailVerified;
 }
 
-// Check verification status and Firestore flag
+// ─────────────────────────────────────────────
+//  CHECK BOTH FIREBASE + FIRESTORE STATUS
+// ─────────────────────────────────────────────
 export async function checkUserVerificationStatus(uid: string): Promise<{
   firebaseVerified: boolean;
   firestoreVerified: boolean;
@@ -232,7 +254,6 @@ export async function checkUserVerificationStatus(uid: string): Promise<{
 
   await user.reload();
 
-  // Get Firestore verified flag
   const userDocRef = doc(db, "users", uid);
   const userSnap = await getDoc(userDocRef);
   const firestoreVerified = userSnap.exists()
@@ -245,7 +266,9 @@ export async function checkUserVerificationStatus(uid: string): Promise<{
   };
 }
 
-// Password validation remains unchanged
+// ─────────────────────────────────────────────
+//  PASSWORD VALIDATION
+// ─────────────────────────────────────────────
 export async function validatePassword(password: string): Promise<{
   isValid: boolean;
   errors: string[];

@@ -129,3 +129,33 @@ export async function uploadTutorDocuments(
     };
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+//  Resend verification email via your own API route.
+//  Call this from a "Resend verification email" button in your UI.
+// ─────────────────────────────────────────────────────────────
+export async function resendVerificationEmail(email: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    const res = await fetch("/api/send-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to resend verification email");
+    }
+
+    return { success: true, message: "Verification email sent! Please check your inbox." };
+  } catch (error: any) {
+    console.error("[auth] Resend verification error:", error);
+    return {
+      success: false,
+      message: error.message || "Failed to resend verification email.",
+    };
+  }
+}
