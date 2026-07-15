@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { onAuthStateChanged } from "firebase/auth";
@@ -21,12 +21,10 @@ function getAuthStatus(): Promise<AuthStatus> {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       unsubscribe();
-
       if (!firebaseUser) {
         resolve("unauthenticated");
         return;
       }
-
       try {
         const userSnap = await getDoc(doc(db, "users", firebaseUser.uid));
         resolve(
@@ -44,9 +42,17 @@ function getAuthStatus(): Promise<AuthStatus> {
 export function PublicHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
+  const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
 
-  // "Sign In" — goes to dashboard if registered, otherwise /login
+  // Transparent over hero, solidifies once content scrolls beneath it
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const handleSignIn = useCallback(async () => {
     setLoadingAction("signin");
     try {
@@ -60,7 +66,6 @@ export function PublicHeader() {
     }
   }, [router]);
 
-  // "Get Started" — three-way: dashboard / register / signup
   const handleGetStarted = useCallback(async () => {
     setLoadingAction("started");
     try {
@@ -77,122 +82,116 @@ export function PublicHeader() {
   }, [router]);
 
   return (
-    <header className="w-full bg-background/95 border-b border-border/50 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-xl font-semibold">
-            <Image
-              alt="kopa360-logo"
-              src="/kopa360-logo.png"
-              width={150}
-              height={30}
-            />
-          </span>
+    <header
+      className={`w-full sticky top-0 z-50 transition-colors duration-300 ${
+        scrolled ? "bg-black/80 backdrop-blur-md" : "bg-transparent"
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-6 flex items-center justify-between h-12">
+        <Link href="/" className="flex items-center">
+          <Image
+            alt="kopa360"
+            src="/kopa360-logo-white.png"
+            width={96}
+            height={20}
+            priority
+          />
         </Link>
 
-        {/* Desktop navigation */}
-        <nav className="hidden md:flex items-center gap-6">
+        {/* Plain text links — no button chrome except the one real conversion action */}
+        <nav className="hidden md:flex items-center gap-7">
           <Link
             href="/"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[13px] text-white/80 hover:text-white transition-colors"
           >
             Home
           </Link>
-          {/* <Link
-            href="/signup"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          <Link
+            href="/become-tutor"
+            className="text-[13px] text-white/80 hover:text-white transition-colors"
           >
             Become a Tutor
-          </Link> */}
-
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={loadingAction !== null}
+          </Link>
+          <button
             onClick={handleSignIn}
+            disabled={loadingAction !== null}
+            className="text-[13px] text-white/80 hover:text-white transition-colors disabled:opacity-50"
           >
             {loadingAction === "signin" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               "Sign In"
             )}
-          </Button>
-
+          </button>
           <Button
             size="sm"
             disabled={loadingAction !== null}
             onClick={handleGetStarted}
+            className="rounded-full h-8 px-4 text-[13px] bg-white text-black hover:bg-white/90"
           >
             {loadingAction === "started" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               "Get Started"
             )}
           </Button>
         </nav>
-        {/* ← closing tag that was missing */}
 
-        {/* Mobile menu button */}
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="md:hidden text-white hover:bg-white/10 hover:text-white h-8 w-8"
           onClick={() => setMenuOpen(!menuOpen)}
         >
-          {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {menuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
       </div>
 
-      {/* Mobile menu */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border overflow-hidden"
+            className="md:hidden bg-black overflow-hidden"
           >
-            <nav className="flex flex-col p-4 gap-2 bg-background">
+            <nav className="flex flex-col p-5 gap-1">
               <Link
                 href="/"
-                className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-accent"
+                className="px-3 py-2.5 text-sm text-white/80 hover:text-white"
                 onClick={() => setMenuOpen(false)}
               >
                 Home
               </Link>
-              {/* <Link
-                href="/signup"
-                className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-accent"
+              <Link
+                href="/become-tutor"
+                className="px-3 py-2.5 text-sm text-white/80 hover:text-white"
                 onClick={() => setMenuOpen(false)}
               >
                 Become a Tutor
-              </Link> */}
-              <div className="flex gap-2 mt-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  disabled={loadingAction !== null}
-                  onClick={handleSignIn}
-                >
-                  {loadingAction === "signin" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-
-                <Button
-                  className="flex-1"
-                  disabled={loadingAction !== null}
-                  onClick={handleGetStarted}
-                >
-                  {loadingAction === "started" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Get Started"
-                  )}
-                </Button>
-              </div>
+              </Link>
+              <button
+                onClick={handleSignIn}
+                disabled={loadingAction !== null}
+                className="px-3 py-2.5 text-sm text-left text-white/80 hover:text-white disabled:opacity-50"
+              >
+                {loadingAction === "signin" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+              <Button
+                className="mt-2 rounded-full h-10 bg-white text-black hover:bg-white/90"
+                disabled={loadingAction !== null}
+                onClick={handleGetStarted}
+              >
+                {loadingAction === "started" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Get Started"
+                )}
+              </Button>
             </nav>
           </motion.div>
         )}

@@ -1,175 +1,124 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Shield, Star, ArrowRight } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import Link from "next/link";
+import { ChevronRight, PlayCircle } from "lucide-react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 
-const textVariants = {
-  initial: { opacity: 0, x: -20 },
-  animate: { opacity: 1, x: 0, transition: { duration: 0.5 } },
-  exit: { opacity: 0, x: 10, transition: { duration: 0.3 } },
+const appleEase = [0.16, 1, 0.3, 1] as const;
+
+const containerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.12, delayChildren: 0.1 },
+  },
 };
 
-const imageVariants = {
-  initial: { opacity: 0, scale: 0.98 },
-  animate: { opacity: 1, scale: 1, transition: { duration: 0.6 } },
-  exit: { opacity: 0, transition: { duration: 0.3 } },
+const fadeUpVariants: Variants = {
+  hidden: { opacity: 0, y: 28 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.9, ease: appleEase },
+  },
 };
 
-const slides = [
-  {
-    title: "Find Your Perfect",
-    highlight: "Tutor Match",
-    description:
-      "Connect with verified educators tailored to your learning style. Our smart matching system ensures academic success from the first session.",
-    src: "/hero-1.png",
+const buttonVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: appleEase },
   },
-  {
-    title: "Expert Tutors for",
-    highlight: "Every Subject",
-    description:
-      "From Mathematics to Music, access a diverse network of qualified professionals ready to help you master any challenge.",
-    src: "/hero-2.png",
-  },
-  {
-    title: "Flexible Learning",
-    highlight: "On Your Terms",
-    description:
-      "Schedule sessions that fit your busy life. Quality education that adapts to you, not the other way around.",
-    src: "/hero-3.png",
-  },
-];
+};
 
 export function HeroSection() {
-  const [current, setCurrent] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, []);
+  const prefersReducedMotion = useReducedMotion();
+  const initialState = prefersReducedMotion ? "visible" : "hidden";
 
   return (
-    <section className="relative overflow-hidden bg-white py-12 lg:py-20 min-h-[80vh] flex items-center">
-      {/* CRITICAL ALIGNMENT: 
-         Matches your PublicHeader: max-w-7xl mx-auto px-4 md:px-8 
-      */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 w-full">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Left Content Side */}
-          <div className="flex flex-col justify-center min-h-[450px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={current}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                variants={textVariants}
-              >
-                <div className="mb-6">
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-50 text-gray-900 text-xs font-semibold border border-gray-200 uppercase tracking-wider">
-                    <Shield className="w-3 h-3 text-primary" />
-                    Verified Tutor Matching
-                  </span>
-                </div>
+    <section
+      aria-label="Find your perfect tutor match"
+      className="relative flex min-h-[90vh] w-full items-center overflow-hidden lg:min-h-screen"
+    >
+      {/* Background artwork — static, never animated */}
+      <Image
+        src="/hero.png"
+        alt=""
+        aria-hidden="true"
+        fill
+        priority
+        className="z-0 object-cover object-right"
+      />
 
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-black leading-[1.1]">
-                  {slides[current].title} <br />
-                  <span className="relative inline-block">
-                    {slides[current].highlight}
-                    <svg
-                      className="absolute -bottom-2 left-0 w-full"
-                      height="8"
-                      viewBox="0 0 100 8"
-                      fill="none"
-                      preserveAspectRatio="none"
-                    >
-                      <path
-                        d="M1 5.5C20 2.5 40 2.5 99 5.5"
-                        stroke="#94F294"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>
-                </h1>
+      {/* Readability wash — fades out by the time it reaches the student */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 z-10 bg-[linear-gradient(90deg,rgba(255,255,255,.92)_0%,rgba(255,255,255,.65)_35%,rgba(255,255,255,0)_70%)]"
+      />
 
-                <p className="text-lg text-gray-600 mb-10 leading-relaxed max-w-lg">
-                  {slides[current].description}
-                </p>
-              </motion.div>
-            </AnimatePresence>
+      {/* Content */}
+      <div className="relative z-20 mx-auto w-full max-w-[1400px] px-[clamp(24px,4vw,80px)]">
+        <motion.div
+          initial={initialState}
+          animate="visible"
+          variants={containerVariants}
+          className="flex w-full flex-col items-start text-left lg:max-w-[40%]"
+        >
+          <motion.span
+            variants={fadeUpVariants}
+            className="mb-5 text-xs font-semibold uppercase tracking-[0.2em] text-teal-600"
+          >
+            Tutoring, reimagined.
+          </motion.span>
 
-            {/* Static CTA Section */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-12">
-              {/* <div className="w-full sm:w-auto flex bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm focus-within:ring-2 ring-[#94F294]/50 transition-all">
-                <input
-                  type="email"
-                  placeholder="Enter your work email"
-                  className="px-4 py-2 outline-none bg-transparent w-full sm:w-64 text-sm"
-                />
-                <Button className="bg-[#94F294] hover:bg-[#82e082] text-black font-bold rounded-lg px-6 h-10">
-                  Book a demo
-                </Button>
-              </div> */}
-            </div>
+          <motion.h1
+            variants={fadeUpVariants}
+            className="text-[42px] font-bold leading-[1.05] tracking-tight text-neutral-900 sm:text-[56px] lg:text-[72px]"
+          >
+            Find your
+            <br />
+            perfect match.
+          </motion.h1>
 
-            {/* Stats Block */}
-            <div className="flex gap-10 pt-8 border-t border-gray-100">
-              <div>
-                <div className="text-3xl font-bold text-black">75.2%</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                  Daily Matching Rate
-                </div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-black">~20k</div>
-                <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                  Active Students
-                </div>
-              </div>
-            </div>
+          <motion.p
+            variants={fadeUpVariants}
+            className="mt-6 max-w-sm text-lg text-neutral-700 sm:text-xl"
+          >
+            Verified tutors. Every subject. Matched in minutes.
+          </motion.p>
 
-            <div className="mt-6 flex items-center gap-2">
-              <div className="flex text-black">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-current" />
-                ))}
-              </div>
-              <span className="font-bold text-sm">4.5</span>
-              <span className="text-gray-400 text-xs">Average user rating</span>
-            </div>
-          </div>
+          <motion.p
+            variants={fadeUpVariants}
+            className="mt-3 text-sm text-neutral-600"
+          >
+            From $24/hr · First session free
+          </motion.p>
 
-          {/* Right Side Image (No card/shadow) */}
-          <div className="relative h-[400px] lg:h-[600px] w-full flex items-center justify-center">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={current}
-                variants={imageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="relative w-full h-full"
-              >
-                <Image
-                  src={slides[current].src}
-                  alt="Tutor Matching Illustration"
-                  fill
-                  className="object-contain" // Keeps it clean and uncropped like the reference
-                  priority
-                />
-              </motion.div>
-            </AnimatePresence>
+          <motion.div
+            variants={buttonVariants}
+            className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center"
+          >
+            <Link
+              href="/get-matched"
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-teal-600 px-8 py-4 text-base font-medium text-white shadow-sm shadow-teal-600/20 transition-colors hover:bg-teal-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
+            >
+              Get matched
+              <ChevronRight
+                className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Link>
 
-            {/* Subtle Grid Background */}
-            <div className="absolute inset-0 -z-10 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:40px_40px] opacity-30" />
-          </div>
-        </div>
+            <Link
+              href="/how-it-works"
+              className="group inline-flex items-center justify-center gap-2 rounded-full border border-white/60 bg-white/30 px-8 py-4 text-base font-medium text-neutral-900 backdrop-blur-md transition-colors hover:bg-white/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
+            >
+              <PlayCircle className="h-4 w-4" aria-hidden="true" />
+              Watch overview
+            </Link>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );

@@ -17,7 +17,7 @@ export function PublicLayout({
       <PublicHeader className="w-full" />
       {hero}
       <main className="flex-1 w-full">
-        <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 w-full">{children}</main>
       </main>
       {showFooter && <PublicFooter />}
     </div>
