@@ -1,6 +1,7 @@
 import {
   registerTutor,
   uploadTutorDocuments,
+  resendVerificationEmail,
 } from "@/app/firebase/authService";
 
 export interface RegistrationData {
@@ -44,6 +45,25 @@ export async function submitTutorRegistration(
         message: result.message || "Registration failed",
       };
     }
+
+    // Automatically send verification email right after successful registration
+    const verifyResult = await resendVerificationEmail(data.email);
+    if (!verifyResult.success) {
+      console.error(
+        "Verification email failed to send:",
+        verifyResult.message,
+      );
+      // Don't fail the whole registration — the user account already
+      // exists in Firestore at this point. Surface this to the UI so
+      // the user knows to use "resend" if needed.
+      return {
+        success: true,
+        uid: result.uid,
+        message:
+          "Registration successful, but we couldn't send your verification email. Please use the resend option.",
+      };
+    }
+
     return { success: true, uid: result.uid };
   } catch (error) {
     return {
