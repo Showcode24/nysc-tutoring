@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Search,
   MapPin,
@@ -26,7 +26,10 @@ import {
   MessageCircle,
   Menu,
   X,
+  Loader2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { getAuthStatus } from "@/lib/getAuthStatus";
 
 // In Next.js, files placed in the /public folder are referenced directly
 // by their URL path — no import statement is needed (unlike Vite's
@@ -83,12 +86,27 @@ function SectionLabel({
 
 function Nav() {
   const [open, setOpen] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const router = useRouter();
+
   const links = [
     { href: "#tutors", label: "Find a tutor" },
     { href: "#subjects", label: "Subjects" },
     { href: "#how", label: "How it works" },
     { href: "#become", label: "Become a tutor" },
   ];
+
+  const handleSignIn = useCallback(async () => {
+    setSigningIn(true);
+    try {
+      const status = await getAuthStatus();
+      router.push(status === "authenticated_registered" ? "/tutor/dashboard" : "/login");
+    } finally {
+      setSigningIn(false);
+      setOpen(false);
+    }
+  }, [router]);
+
   return (
     <header className="sticky top-0 z-40 border-b border-line/60 bg-cream/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
@@ -100,6 +118,7 @@ function Nav() {
             Kopa<span className="text-terracotta">360</span>
           </span>
         </a>
+
         <nav className="hidden items-center gap-8 text-sm text-ink-soft md:flex">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="hover:text-ink">
@@ -107,14 +126,17 @@ function Nav() {
             </a>
           ))}
         </nav>
+
         <div className="flex items-center gap-2">
-          <a
-            href="#"
-            className="hidden text-sm text-ink-soft hover:text-ink md:inline"
+          <button
+            type="button"
+            onClick={handleSignIn}
+            disabled={signingIn}
             aria-label="Sign in"
+            className="hidden text-sm text-ink-soft hover:text-ink disabled:opacity-50 md:inline"
           >
-            Sign in
-          </a>
+            {signingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Sign in"}
+          </button>
           <a
             href="#tutors"
             className="hidden items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 md:inline-flex"
@@ -132,6 +154,7 @@ function Nav() {
           </button>
         </div>
       </div>
+
       <div
         className={`overflow-hidden border-t border-line/60 bg-cream/95 backdrop-blur-xl transition-[max-height] duration-300 md:hidden ${
           open ? "max-h-96" : "max-h-0"
@@ -148,13 +171,14 @@ function Nav() {
               {l.label}
             </a>
           ))}
-          <a
-            href="#"
-            onClick={() => setOpen(false)}
-            className="border-b border-line/50 py-3 text-ink-soft hover:text-ink"
+          <button
+            type="button"
+            onClick={handleSignIn}
+            disabled={signingIn}
+            className="border-b border-line/50 py-3 text-left text-ink-soft hover:text-ink disabled:opacity-50"
           >
-            Sign in
-          </a>
+            {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+          </button>
           <a
             href="#tutors"
             onClick={() => setOpen(false)}
@@ -1332,6 +1356,7 @@ export default function Landing() {
     </main>
   );
 }
+
 
 // The block below (from the original file) was already commented out and
 // sketched an alternative composition using separate layout components

@@ -1,27 +1,25 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { TutorStatus } from "@/app/src/types";
 import {
-  LayoutDashboard,
   User,
   Briefcase,
   Bell,
   Calendar,
   FileText,
   ArrowRight,
+  ArrowUpRight,
   Clock,
   CheckCircle,
   ClipboardList,
+  LayoutDashboard,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
-import { motion } from "framer-motion";
-import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
-import { StatusBanner } from "@/app/src/components/shared/status-banner";
-import { MetricCard } from "@/app/src/components/shared/metric-card";
-import { ProgressRing } from "@/app/src/components/shared/progress-ring";
-import { EmptyState } from "@/app/src/components/shared/empty-state";
 import Link from "next/link";
-import ProtectedPageWrapper from "@/app/src/components/layouts/ptotected-page-wrapper";
+import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
+import ProtectedPageWrapper from "@/app/src/components/layouts/protected-page-wrapper";
 import { auth, db } from "@/app/firebase/firebase";
 import {
   collection,
@@ -57,7 +55,7 @@ interface TutorData {
   };
 }
 
-interface Document {
+interface DocumentRecord {
   id: string;
   documentType: string;
   fileName: string;
@@ -100,9 +98,213 @@ function calculateProfileCompletion(tutor: TutorData): number {
   return Math.round((filled / fields.length) * 100);
 }
 
+/* ---------- Local primitives, matched to the Kopa360 landing page ---------- */
+
+function Pill({
+  children,
+  tone = "sand",
+}: {
+  children: React.ReactNode;
+  tone?: "sand" | "sage" | "terracotta" | "ochre";
+}) {
+  const styles = {
+    sand: "bg-sand text-ink border-line",
+    sage: "bg-sage/10 text-sage border-sage/20",
+    terracotta: "bg-terracotta/10 text-terracotta border-terracotta/25",
+    ochre: "bg-ochre/10 text-ochre border-ochre/25",
+  } as const;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em] ${styles[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.24em] text-ink-soft">
+      <span className="h-px w-8 bg-line" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function ProgressRing({
+  progress,
+  size = 56,
+}: {
+  progress: number;
+  size?: number;
+}) {
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (progress / 100) * circumference;
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="var(--sand)"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="var(--terracotta)"
+        strokeWidth={stroke}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        className="transition-[stroke-dashoffset] duration-700 ease-out"
+      />
+    </svg>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  description,
+  icon: Icon,
+}: {
+  label: string;
+  value: React.ReactNode;
+  description?: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="rounded-2xl border border-line bg-white p-6 transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-28px_rgba(20,15,10,0.25)]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+            {label}
+          </p>
+          <p className="mt-2 font-display text-3xl leading-none text-ink">
+            {value}
+          </p>
+          {description && (
+            <p className="mt-1 text-xs text-ink-soft">{description}</p>
+          )}
+        </div>
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-terracotta/10 text-terracotta">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+      <div className="grid h-12 w-12 place-items-center rounded-full bg-sand text-ink-soft">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="font-display text-lg text-ink">{title}</p>
+        <p className="mt-1 max-w-xs text-sm text-ink-soft">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_COPY: Record<
+  string,
+  { tone: "sage" | "ochre" | "terracotta"; title: string; body: string }
+> = {
+  active: {
+    tone: "sage",
+    title: "Your profile is live",
+    body: "Parents in Benin City can find and book you right now.",
+  },
+  pending: {
+    tone: "ochre",
+    title: "Verification in progress",
+    body: "Our team is reviewing your documents and profile details.",
+  },
+  pending_verification: {
+    tone: "ochre",
+    title: "Verification in progress",
+    body: "Our team is reviewing your documents and profile details.",
+  },
+  rejected: {
+    tone: "terracotta",
+    title: "Action needed on your profile",
+    body: "Something needs your attention before we can verify you.",
+  },
+};
+
+function StatusBanner({
+  status,
+  appointmentDate,
+  verificationNotes,
+}: {
+  status: TutorStatus | string;
+  appointmentDate?: string;
+  verificationNotes?: string;
+}) {
+  const copy = STATUS_COPY[status] ?? STATUS_COPY.pending;
+  const toneStyles = {
+    sage: "bg-sage/10 border-sage/20 text-sage",
+    ochre: "bg-ochre/10 border-ochre/20 text-ochre",
+    terracotta: "bg-terracotta/10 border-terracotta/20 text-terracotta",
+  } as const;
+  const Icon = copy.tone === "sage" ? ShieldCheck : ShieldAlert;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-4">
+        <div
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border ${toneStyles[copy.tone]}`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="font-display text-xl leading-tight text-ink">
+            {copy.title}
+          </p>
+          <p className="mt-1 text-sm text-ink-soft">
+            {verificationNotes || copy.body}
+          </p>
+          {appointmentDate && (
+            <p className="mt-1 text-xs text-ink-soft">
+              Appointment scheduled for{" "}
+              {new Date(appointmentDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </p>
+          )}
+        </div>
+      </div>
+      <Pill tone={copy.tone === "terracotta" ? "terracotta" : copy.tone}>
+        {status.replace("_", " ")}
+      </Pill>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
+
 export default function TutorDashboard() {
   const [tutor, setTutor] = useState<TutorData | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,23 +317,22 @@ export default function TutorDashboard() {
 
         const uid = currentUser.uid;
 
-        // Fetch tutor profile
         const userDoc = await getDoc(doc(db, "users", uid));
         if (userDoc.exists()) {
           setTutor(userDoc.data() as TutorData);
         }
 
-        // Fetch documents
         const docsQuery = query(
           collection(db, "documents"),
           where("tutorId", "==", doc(db, "users", uid)),
         );
         const docsSnap = await getDocs(docsQuery);
         setDocuments(
-          docsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Document),
+          docsSnap.docs.map(
+            (d) => ({ id: d.id, ...d.data() }) as DocumentRecord,
+          ),
         );
 
-        // Fetch appointments
         const apptQuery = query(
           collection(db, "appointments"),
           where("tutorId", "==", uid),
@@ -141,7 +342,6 @@ export default function TutorDashboard() {
           apptSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Appointment),
         );
 
-        // Fetch notifications
         const notifQuery = query(
           collection(db, "notifications"),
           where("tutorId", "==", uid),
@@ -173,13 +373,20 @@ export default function TutorDashboard() {
     return (
       <ProtectedPageWrapper>
         <DashboardLayout navItems={tutorNavItems} userType="tutor" userName="">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="flex h-64 items-center justify-center bg-cream">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-terracotta" />
           </div>
         </DashboardLayout>
       </ProtectedPageWrapper>
     );
   }
+
+  const quickActions = [
+    { label: "Complete profile", href: "/tutor/profile", icon: User },
+    { label: "View documents", href: "/tutor/profile", icon: FileText },
+    { label: "Browse gigs", href: "/tutor/gigs", icon: Briefcase },
+    { label: "Contact support", href: "#", icon: Bell },
+  ];
 
   return (
     <ProtectedPageWrapper>
@@ -188,63 +395,57 @@ export default function TutorDashboard() {
         userType="tutor"
         userName={tutor ? `${tutor.firstName} ${tutor.lastName}` : ""}
       >
-        <div className="space-y-8">
-          {/* Page Header */}
-          <div className="page-header">
-            <div>
-              <h1 className="page-title">Welcome back, {tutor?.firstName}</h1>
-              <p className="page-description">
-                Here's what's happening with your tutoring account.
-              </p>
-            </div>
+        <div className="space-y-10 bg-cream">
+          {/* Header */}
+          <div>
+            <Eyebrow>Tutor dashboard</Eyebrow>
+            <h1 className="mt-4 font-display text-4xl leading-[1.05] tracking-[-0.01em] text-ink md:text-5xl">
+              Welcome back,{" "}
+              <span className="italic text-terracotta">{tutor?.firstName}</span>
+            </h1>
+            <p className="mt-3 max-w-xl text-ink-soft">
+              Here's what's happening with your tutoring account.
+            </p>
           </div>
 
-          {/* Status Banner */}
+          {/* Status */}
           <StatusBanner
             status={
               tutor?.tutorProfile?.status === "pending_verification"
-                ? "pending"
+                ? "pending_verification"
                 : (tutor?.tutorProfile?.status as TutorStatus) || "pending"
             }
             appointmentDate={tutor?.tutorProfile?.appointmentDate}
             verificationNotes={tutor?.tutorProfile?.verificationNotes}
           />
 
-          {/* Quick Stats */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="card-elevated p-6"
-            >
+          {/* Quick stats */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl border border-line bg-white p-6 transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-28px_rgba(20,15,10,0.25)]">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">
-                    Profile Completion
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+                    Profile completion
                   </p>
-                  <p className="text-2xl font-semibold mt-1">
+                  <p className="mt-2 font-display text-3xl leading-none text-ink">
                     {profileCompletion}%
                   </p>
                 </div>
-                <ProgressRing progress={profileCompletion} size={56} />
+                <ProgressRing progress={profileCompletion} size={52} />
               </div>
               {profileCompletion < 100 && (
-                <Link href="/tutor/profile">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3 -ml-2 text-primary"
-                  >
-                    Complete profile
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
+                <Link
+                  href="/tutor/profile"
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:gap-1.5 transition-all"
+                >
+                  Complete profile
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               )}
-            </motion.div>
+            </div>
 
-            <MetricCard
-              title="Account Status"
+            <StatCard
+              label="Account status"
               value={
                 tutor?.tutorProfile?.status
                   ? tutor.tutorProfile.status
@@ -255,50 +456,47 @@ export default function TutorDashboard() {
               icon={
                 tutor?.tutorProfile?.status === "active" ? CheckCircle : Clock
               }
-              className="delay-150"
             />
 
-            <MetricCard
-              title="Documents"
+            <StatCard
+              label="Documents"
               value={`${approvedDocs}/${documents.length}`}
               description="approved"
               icon={FileText}
-              className="delay-200"
             />
 
-            <MetricCard
-              title="Notifications"
+            <StatCard
+              label="Notifications"
               value={unreadNotifications.length}
               description="unread"
               icon={Bell}
-              className="delay-250"
             />
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Upcoming Appointment */}
+          {/* Main grid */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Upcoming appointment */}
             <div className="lg:col-span-2">
-              <div className="card-elevated">
-                <div className="p-6 border-b border-border">
-                  <h2 className="font-semibold flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    Upcoming Appointment
+              <div className="rounded-2xl border border-line bg-white">
+                <div className="flex items-center gap-2 border-b border-line p-6">
+                  <Calendar className="h-4 w-4 text-terracotta" />
+                  <h2 className="font-display text-xl text-ink">
+                    Upcoming appointment
                   </h2>
                 </div>
 
                 {upcomingAppointment ? (
                   <div className="p-6">
                     <div className="flex items-start gap-4">
-                      <div className="p-3 rounded-xl bg-primary/10">
-                        <Calendar className="w-6 h-6 text-primary" />
+                      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-terracotta/10 text-terracotta">
+                        <Calendar className="h-5 w-5" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium capitalize">
+                        <p className="font-medium capitalize text-ink">
                           {upcomingAppointment.type.replace("_", " ")}{" "}
-                          Appointment
+                          appointment
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="mt-1 text-sm text-ink-soft">
                           {new Date(
                             upcomingAppointment.date,
                           ).toLocaleDateString("en-US", {
@@ -309,14 +507,12 @@ export default function TutorDashboard() {
                           at {upcomingAppointment.time}
                         </p>
                         {upcomingAppointment.assignedAdmin && (
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="mt-1 text-sm text-ink-soft">
                             With: {upcomingAppointment.assignedAdmin}
                           </p>
                         )}
                       </div>
-                      <span className="status-badge status-badge-pending">
-                        Scheduled
-                      </span>
+                      <Pill tone="ochre">Scheduled</Pill>
                     </div>
                   </div>
                 ) : (
@@ -324,50 +520,51 @@ export default function TutorDashboard() {
                     icon={Calendar}
                     title="No upcoming appointments"
                     description="You don't have any scheduled appointments at the moment."
-                    className="py-12"
                   />
                 )}
               </div>
             </div>
 
             {/* Notifications */}
-            <div className="card-elevated">
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <h2 className="font-semibold flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-primary" />
-                  Notifications
-                </h2>
+            <div className="rounded-2xl border border-line bg-white">
+              <div className="flex items-center justify-between gap-2 border-b border-line p-6">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-terracotta" />
+                  <h2 className="font-display text-xl text-ink">
+                    Notifications
+                  </h2>
+                </div>
                 {unreadNotifications.length > 0 && (
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                  <Pill tone="terracotta">
                     {unreadNotifications.length} new
-                  </span>
+                  </Pill>
                 )}
               </div>
 
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-line">
                 {notifications.length > 0 ? (
                   notifications.slice(0, 4).map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 ${!notification.read ? "bg-accent/30" : ""}`}
+                      className={`p-4 ${!notification.read ? "bg-sand/40" : ""}`}
                     >
                       <div className="flex items-start gap-3">
                         <div
-                          className={`w-2 h-2 rounded-full mt-2 ${
+                          className={`mt-2 h-1.5 w-1.5 rounded-full ${
                             notification.type === "success"
-                              ? "bg-status-active"
+                              ? "bg-sage"
                               : notification.type === "warning"
-                                ? "bg-status-pending"
+                                ? "bg-ochre"
                                 : notification.type === "error"
-                                  ? "bg-status-rejected"
-                                  : "bg-muted-foreground"
+                                  ? "bg-terracotta"
+                                  : "bg-ink-soft"
                           }`}
                         />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-ink">
                             {notification.title}
                           </p>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
+                          <p className="mt-0.5 line-clamp-2 text-sm text-ink-soft">
                             {notification.message}
                           </p>
                         </div>
@@ -379,39 +576,34 @@ export default function TutorDashboard() {
                     icon={Bell}
                     title="No notifications"
                     description="You're all caught up!"
-                    className="py-8"
                   />
                 )}
               </div>
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="card-elevated p-6">
-            <h2 className="font-semibold mb-4">Quick Actions</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                {
-                  label: "Complete Profile",
-                  href: "/tutor/profile",
-                  icon: User,
-                },
-                {
-                  label: "View Documents",
-                  href: "/tutor/profile",
-                  icon: FileText,
-                },
-                { label: "Browse Gigs", href: "/tutor/gigs", icon: Briefcase },
-                { label: "Contact Support", href: "#", icon: Bell },
-              ].map((action) => (
-                <Link key={action.label} href={action.href}>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start h-auto py-4"
-                  >
-                    <action.icon className="w-5 h-5 mr-3 text-primary" />
-                    {action.label}
-                  </Button>
+          {/* Quick actions */}
+          <div className="rounded-2xl border border-line bg-white p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-terracotta" />
+              <h2 className="font-display text-xl text-ink">Quick actions</h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className="group flex items-center justify-between gap-3 rounded-2xl border border-line bg-cream px-4 py-4 transition hover:-translate-y-0.5 hover:border-terracotta/40 hover:bg-terracotta/[0.04]"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-terracotta/10 text-terracotta transition group-hover:bg-terracotta group-hover:text-cream">
+                      <action.icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm font-medium text-ink">
+                      {action.label}
+                    </span>
+                  </span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-ink-soft opacity-0 transition group-hover:opacity-100" />
                 </Link>
               ))}
             </div>
