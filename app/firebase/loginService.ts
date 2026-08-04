@@ -1,12 +1,5 @@
 import { signInWithEmailAndPassword, AuthError, User } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
 /**
@@ -55,17 +48,44 @@ function deriveAuthState(
 }
 
 /**
- * Looks up whether a user document exists for this email, by query rather
- * than by uid (we don't have a uid until after Firebase Auth succeeds).
- * Deliberately a separate read from the later uid-based profile fetch:
- * the Firestore `email` field could in principle drift from the Firebase
- * Auth email (e.g. an email-change flow that forgets to update Firestore),
- * so uid — not this query — stays the authoritative source once we have it.
+ * Checks whether an account exists for this email, via the server-side
+ * /api/check-account route (Admin SDK, checks Firebase Auth directly).
+ * Deliberately NOT a client-side Firestore query: the client has no
+ * Firebase Auth session yet at this point, and Firestore rules that
+ * correctly restrict reads to `request.auth.uid == userId` can't be
+ * satisfied by an unauthenticated collection query — it would just throw
+ * "Missing or insufficient permissions". Checking Auth server-side avoids
+ * that entirely and is the more authoritative source of truth anyway.
  */
 async function checkAccountExists(email: string): Promise<boolean> {
-  const q = query(collection(db, "users"), where("email", "==", email));
-  const snap = await getDocs(q);
-  return !snap.empty;
+  try {
+    const res = await fetch("/api/check-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!res.ok) {
+      // Fail open: let the real Firebase Auth attempt below decide.
+      // Firebase Auth's own error handling still correctly rejects a
+      // truly nonexistent account — we just lose the nicer "no account,
+      // sign up" messaging for this one request if the check itself
+      // errored.
+      console.error(
+        "[auth] Account existence check failed, proceeding to auth attempt",
+      );
+      return true;
+    }
+
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch (error) {
+    console.error(
+      "[auth] Account existence check errored, proceeding to auth attempt:",
+      error,
+    );
+    return true;
+  }
 }
 
 /**
