@@ -1211,7 +1211,7 @@ function FinalCTA() {
             <span className="italic text-ochre">breakthrough</span> is one
             lesson away.
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-cream/70">
+              <p className="mx-auto mt-6 max-w-xl text-cream/70">
             Tell us the subject. We'll bring the tutor. Book your first session
             in under two minutes.
           </p>

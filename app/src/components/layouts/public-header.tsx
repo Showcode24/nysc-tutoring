@@ -181,7 +181,7 @@ export function PublicHeader() {
                   "Sign In"
                 )}
               </button>
-              <Button
+              {/* <Button
                 className="mt-2 rounded-full h-10 bg-white text-black hover:bg-white/90"
                 disabled={loadingAction !== null}
                 onClick={handleGetStarted}
@@ -191,7 +191,7 @@ export function PublicHeader() {
                 ) : (
                   "Get Started"
                 )}
-              </Button>
+              </Button> */}
             </nav>
           </motion.div>
         )}

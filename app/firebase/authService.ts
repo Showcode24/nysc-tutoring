@@ -35,30 +35,37 @@ export async function registerTutor(data: RegistrationData) {
 
     const uid = currentUser.uid;
 
-    // Save profile to Firestore
+    // Merge into the profile document that signUpWithEmail() already created —
+    // a plain setDoc() here would wipe fields like uid, accountType, status,
+    // verified, profileComplete, and createdAt that were set at signup.
     const userRef = doc(db, "users", uid);
 
-    await setDoc(userRef, {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone,
-      location: data.location,
-      role: "tutor",
+    await setDoc(
+      userRef,
+      {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        location: data.location,
+        role: "tutor",
 
-      tutorProfile: {
-        bio: data.bio,
-        hourlyRate: data.hourlyRate,
-        category: data.category,
-        degreeClass: data.degreeClass,
-        specialization: data.specialization.split(", ").filter((s) => s.trim()),
-        status: "pending_verification",
+        tutorProfile: {
+          bio: data.bio,
+          hourlyRate: data.hourlyRate,
+          category: data.category,
+          degreeClass: data.degreeClass,
+          specialization: data.specialization
+            .split(", ")
+            .filter((s) => s.trim()),
+          status: "pending_verification",
+        },
+
+        userType: "tutor",
+        updatedAt: Timestamp.now(),
       },
-
-      userType: "tutor",
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
+      { merge: true },
+    );
 
     return {
       success: true,

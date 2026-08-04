@@ -1,28 +1,95 @@
 import { signInWithEmailAndPassword, AuthError, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { auth, db } from "./firebase";
 
+/**
+ * Full authentication state returned by loginUser(). The service only
+ * reports state — it never decides where the UI should navigate next.
+ *
+ * Stopping points for a login attempt, in order:
+ *   0. no account exists for this email          -> accountNotFound === true
+ *   1. authenticated but not verified             -> verified === false
+ *   2. verified but no Firestore profile          -> profileExists === false
+ *   3. profile exists but registration incomplete -> registrationCompleted === false
+ *   4. fully authenticated                        -> registrationCompleted === true
+ */
 export interface LoginResponse {
   success: boolean;
   user?: User;
   role?: "tutor" | "admin" | "super_admin";
+  /** True when no user document exists for this email — checked before
+   *  Firebase Auth is ever called. Check this before `!success`. */
+  accountNotFound?: boolean;
   verified?: boolean;
-  notRegistered?: boolean;
+  profileExists?: boolean;
+  registrationCompleted?: boolean;
+  /** Convenience summary of the booleans above — same information, easier
+   *  to switch on in the UI. The booleans remain the source of truth. */
+  state?: AuthState;
   error?: string;
 }
 
+export type AuthState =
+  | "UNVERIFIED"
+  | "PROFILE_MISSING"
+  | "PROFILE_INCOMPLETE"
+  | "READY";
+
+/** Derives `state` from the individual booleans so the two never disagree. */
+function deriveAuthState(
+  verified?: boolean,
+  profileExists?: boolean,
+  registrationCompleted?: boolean,
+): AuthState {
+  if (!verified) return "UNVERIFIED";
+  if (!profileExists) return "PROFILE_MISSING";
+  if (!registrationCompleted) return "PROFILE_INCOMPLETE";
+  return "READY";
+}
+
 /**
- * Login user with email and password
- * @param email User email
- * @param password User password
- * @returns LoginResponse with user data and role
+ * Looks up whether a user document exists for this email, by query rather
+ * than by uid (we don't have a uid until after Firebase Auth succeeds).
+ * Deliberately a separate read from the later uid-based profile fetch:
+ * the Firestore `email` field could in principle drift from the Firebase
+ * Auth email (e.g. an email-change flow that forgets to update Firestore),
+ * so uid — not this query — stays the authoritative source once we have it.
+ */
+async function checkAccountExists(email: string): Promise<boolean> {
+  const q = query(collection(db, "users"), where("email", "==", email));
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
+/**
+ * Authenticates a user and returns their complete authentication state.
+ * Does not make any navigation decisions — see LoginResponse for how the
+ * UI should branch on the result.
  */
 export async function loginUser(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
   try {
-    // Sign in with Firebase Auth
+    // 0. Account existence check, before Firebase Auth is ever called
+    const accountExists = await checkAccountExists(email);
+    if (!accountExists) {
+      return {
+        success: false,
+        accountNotFound: true,
+        error:
+          "No account found with this email. Create an account to continue.",
+      };
+    }
+
+    // 1. Authenticate
     const userCredential = await signInWithEmailAndPassword(
       auth,
       email,
@@ -30,41 +97,79 @@ export async function loginUser(
     );
     const user = userCredential.user;
 
-    console.log("User signed in successfully:", user.email);
-
-    // Reload to get latest verification status
+    // 2. Reload to get the latest emailVerified status
     await user.reload();
 
-    // Get user role and verification status from Firestore
+    // 3. Single Firestore read, done here rather than after the verified
+    // check. Role (`userType`) only exists in Firestore — there's no
+    // custom-claims setup — so there's no way to know whether the
+    // admin/super_admin bypass applies without reading it first. This is a
+    // deliberate departure from "no Firestore read for unverified users":
+    // with this schema that rule can't be satisfied literally. If you add
+    // custom claims mirroring `userType` later, this can go back to two
+    // separate steps.
     const userDocRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userDocRef);
+    const userData = userSnap.exists() ? userSnap.data() : undefined;
 
-    // User has a Firebase Auth account but hasn't completed registration
-    if (!userSnap.exists()) {
-      console.error("User document not found in Firestore");
+    const role = userData?.userType as
+      | "tutor"
+      | "admin"
+      | "super_admin"
+      | undefined;
+    const isBypassRole = role === "admin" || role === "super_admin";
+
+    // Email verification always comes from Firebase Auth's emailVerified —
+    // the Firestore `verified` field is a separate, unrelated field and is
+    // never read here.
+    const verified = isBypassRole ? true : user.emailVerified;
+
+    // 4. Not verified: return without profile/registration details
+    if (!verified) {
       return {
-        success: false,
-        notRegistered: true,
-        error: "User profile not found.",
+        success: true,
+        verified: false,
+        user,
+        role,
+        state: deriveAuthState(false),
       };
     }
 
-    const userData = userSnap.data();
-    const role = userData?.role || "tutor";
-    const verified =
-      role === "admin" || role === "super_admin" ? true : user.emailVerified;
+    // 5. No Firestore profile at all
+    if (!userSnap.exists()) {
+      return {
+        success: true,
+        verified: true,
+        profileExists: false,
+        user,
+        role,
+        state: deriveAuthState(true, false),
+      };
+    }
 
-    console.log("User login data:", {
-      email: user.email,
-      verified,
-      role,
-    });
+    // 6. Registration completion is tracked by its own dedicated boolean —
+    // set to false when the user doc is created, and flipped to true by the
+    // registration/profile-setup flow once it finishes. Deliberately NOT
+    // inferred from any profile fields, and independent of
+    // tutorProfile.status (tutor approval — untouched here) and the
+    // Firestore `verified` field (also untouched here).
+    const registrationCompleted = Boolean(userData?.registrationCompleted);
+    if (userData?.registrationCompleted === undefined) {
+      console.warn(
+        "[auth] `registrationCompleted` missing on user doc",
+        user.uid,
+        "— defaulting to false until the field is added.",
+      );
+    }
 
     return {
       success: true,
+      verified: true,
+      profileExists: true,
+      registrationCompleted,
       user,
-      role: role as "tutor" | "admin" | "super_admin",
-      verified,
+      role: role ?? "tutor",
+      state: deriveAuthState(true, true, registrationCompleted),
     };
   } catch (error) {
     return handleLoginError(error as AuthError);
@@ -72,42 +177,41 @@ export async function loginUser(
 }
 
 /**
- * Handle Firebase Auth errors with user-friendly messages
+ * Handle Firebase Auth errors with user-friendly messages.
+ * Account-existence-revealing errors are collapsed into one generic message
+ * — account existence itself is now surfaced separately, before this ever
+ * runs, via `accountNotFound`.
  */
 function handleLoginError(error: AuthError): LoginResponse {
-  console.error("[v0] Login error:", error.code, error.message);
+  console.error("[auth] Login error:", error.code, error.message);
 
-  let userFriendlyMessage = "An error occurred during login. Please try again.";
+  let message = "An error occurred during login. Please try again.";
 
   switch (error.code) {
     case "auth/user-not-found":
-      userFriendlyMessage =
-        "No account found with this email. Please check your email or sign up.";
-      break;
     case "auth/wrong-password":
-      userFriendlyMessage =
-        "Incorrect password. Please try again or reset your password.";
+    case "auth/invalid-credential":
+      message = "Incorrect email or password. Please try again.";
       break;
     case "auth/invalid-email":
-      userFriendlyMessage = "Please enter a valid email address.";
+      message = "Please enter a valid email address.";
       break;
     case "auth/user-disabled":
-      userFriendlyMessage =
-        "This account has been disabled. Please contact support.";
+      message = "This account has been disabled. Please contact support.";
       break;
     case "auth/too-many-requests":
-      userFriendlyMessage =
+      message =
         "Too many failed login attempts. Please try again later or reset your password.";
       break;
-    case "auth/invalid-credential":
-      userFriendlyMessage = "Invalid email or password. Please try again.";
+    case "auth/network-request-failed":
+      message = "Network error. Please check your connection and try again.";
       break;
     default:
-      userFriendlyMessage = error.message || userFriendlyMessage;
+      message = error.message || message;
   }
 
   return {
     success: false,
-    error: userFriendlyMessage,
+    error: message,
   };
 }

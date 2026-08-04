@@ -13,7 +13,7 @@ import { Eye, EyeOff, ArrowRight, Chrome, MailCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { PublicLayout } from "../src/components/layouts/public-layout";
+// import { PublicLayout } from "../src/components/layouts/public-layout";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -201,7 +201,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <PublicLayout showFooter={false}>
+    // <PublicLayout showFooter={false}>
       <div className="flex min-h-screen items-center justify-center px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -389,6 +389,6 @@ export default function SignUpPage() {
           </p>
         </motion.div>
       </div>
-    </PublicLayout>
+    // </PublicLayout>
   );
 }
