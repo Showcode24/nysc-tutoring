@@ -29,6 +29,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { getAuthStatus } from "@/lib/getAuthStatus";
 
 // In Next.js, files placed in the /public folder are referenced directly
@@ -37,11 +38,16 @@ import { getAuthStatus } from "@/lib/getAuthStatus";
 // Place these files at: public/hero-tutor.jpg, public/become-kopa.jpg,
 // public/kopa-1.jpg, public/kopa-2.jpg, public/kopa-3.jpg, public/kopa-4.jpg
 const heroImg = "/hero-tutor.jpg";
-const becomeImg = "/become-kopa.jpg";
-const kopa1 = "/kopa-1.jpg";
-const kopa2 = "/kopa-2.jpg";
-const kopa3 = "/kopa-3.jpg";
-const kopa4 = "/kopa-4.jpg";
+const becomeImg =
+  "https://images.unsplash.com/photo-1694175271713-a6e2cc378980?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fGJsYWNrJTIwc3R1ZGVudHxlbnwwfHwwfHx8MA%3D%3D";
+const kopa1 =
+  "https://img.magnific.com/free-photo/confident-business-woman-portrait-smiling-face_53876-137693.jpg?semt=ais_hybrid&w=740&q=80";
+const kopa2 =
+  "https://i.pinimg.com/736x/c4/56/dc/c456dcafb0f55e46b064a80a88733799.jpg";
+const kopa3 =
+  "https://img.magnific.com/free-photo/black-businesswoman-smiling_74855-1086.jpg?semt=ais_hybrid&w=740&q=80";
+const kopa4 =
+  "https://images.pexels.com/photos/36053652/pexels-photo-36053652.jpeg?cs=srgb&dl=pexels-blackben-36053652.jpg&fm=jpg";
 
 /* ---------- Primitives ---------- */
 
@@ -100,7 +106,9 @@ function Nav() {
     setSigningIn(true);
     try {
       const status = await getAuthStatus();
-      router.push(status === "authenticated_registered" ? "/tutor/dashboard" : "/login");
+      router.push(
+        status === "authenticated_registered" ? "/tutor/dashboard" : "/login",
+      );
     } finally {
       setSigningIn(false);
       setOpen(false);
@@ -111,12 +119,13 @@ function Nav() {
     <header className="sticky top-0 z-40 border-b border-line/60 bg-cream/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1360px] items-center justify-between px-5 md:px-8">
         <a href="#" className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-cream">
-            <span className="font-display text-lg leading-none">K</span>
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight">
-            Kopa<span className="text-terracotta">360</span>
-          </span>
+          <Image
+            src="/kopa360-logo.png"
+            alt="Kopa360"
+            width={200}
+            height={30}
+            className="h-8 w-auto"
+          />
         </a>
 
         <nav className="hidden items-center gap-8 text-sm text-ink-soft md:flex">
@@ -135,7 +144,11 @@ function Nav() {
             aria-label="Sign in"
             className="hidden text-sm text-ink-soft hover:text-ink disabled:opacity-50 md:inline"
           >
-            {signingIn ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Sign in"}
+            {signingIn ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              "Sign in"
+            )}
           </button>
           <a
             href="#tutors"
@@ -177,7 +190,11 @@ function Nav() {
             disabled={signingIn}
             className="border-b border-line/50 py-3 text-left text-ink-soft hover:text-ink disabled:opacity-50"
           >
-            {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+            {signingIn ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Sign in"
+            )}
           </button>
           <a
             href="#tutors"
@@ -1211,7 +1228,7 @@ function FinalCTA() {
             <span className="italic text-ochre">breakthrough</span> is one
             lesson away.
           </h2>
-              <p className="mx-auto mt-6 max-w-xl text-cream/70">
+          <p className="mx-auto mt-6 max-w-xl text-cream/70">
             Tell us the subject. We'll bring the tutor. Book your first session
             in under two minutes.
           </p>
@@ -1244,9 +1261,13 @@ function Footer() {
         <div className="grid gap-10 md:grid-cols-12">
           <div className="md:col-span-5">
             <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-ink text-cream">
-                <span className="font-display text-lg leading-none">K</span>
-              </span>
+              <Image
+                src="/kopa360-logo.png"
+                alt="Kopa360"
+                width={32}
+                height={32}
+                className="h-8 w-8 object-contain"
+              />
               <span className="text-[15px] font-semibold tracking-tight">
                 Kopa<span className="text-terracotta">360</span>
               </span>
@@ -1356,7 +1377,6 @@ export default function Landing() {
     </main>
   );
 }
-
 
 // The block below (from the original file) was already commented out and
 // sketched an alternative composition using separate layout components
