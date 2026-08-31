@@ -99,7 +99,7 @@ function Nav() {
     { href: "#tutors", label: "Find a tutor" },
     { href: "#subjects", label: "Subjects" },
     { href: "#how", label: "How it works" },
-    { href: "#become", label: "Become a tutor" },
+    { href: "/signup", label: "Become a tutor" },
   ];
 
   const handleSignIn = useCallback(async () => {
@@ -150,12 +150,12 @@ function Nav() {
               "Sign in"
             )}
           </button>
-          <a
+          {/* <a
             href="#tutors"
             className="hidden items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream transition hover:bg-ink/90 md:inline-flex"
           >
             Book a tutor <ArrowUpRight className="h-3.5 w-3.5" />
-          </a>
+          </a> */}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
