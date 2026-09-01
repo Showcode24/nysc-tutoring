@@ -235,9 +235,9 @@ function Hero() {
             <span className="italic text-terracotta">Brighter</span> students.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
-            Kopa360 connects parents in Benin City with rigorously vetted tutors
-            — from primary maths to WAEC prep — so your child gets the attention
-            that actually moves grades.
+Kopa360 connects parents with trusted and carefully vetted tutors and skilled instructors who can help children learn, grow, and prepare for a better future.
+From primary school subjects and exam preparation to creative skills, technology, digital skills, and other practical, teachable skills, Kopa360 gives your child access to the right guidance and learning opportunities to build both academic confidence and real-world abilities.
+Don’t just prepare your child for the next exam. Prepare them for the future.
           </p>
 
           {/* Search card */}
