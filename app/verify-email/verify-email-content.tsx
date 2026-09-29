@@ -41,10 +41,15 @@ export default function VerifyEmailContent() {
             await syncVerificationToFirestore(updatedUser.uid);
 
             setMessage(
-              "Email verified successfully! Redirecting to dashboard...",
+              "Email verified successfully! Redirecting to login...",
             );
             setIsVerifying(false);
-            setTimeout(() => router.push("/dashboard"), 2500);
+            // There is no top-level /dashboard route — tutor and admin
+            // dashboards live at /tutor/dashboard and /admin/dashboard, and
+            // which one a user gets (plus whether they still need to finish
+            // /register) is decided by loginUser()'s state machine. Sending
+            // them through /login lets that logic run instead of guessing.
+            setTimeout(() => router.push("/login"), 2500);
           } else {
             // This happens if the user reloads the page without clicking the email link
             setMessage(

@@ -32,12 +32,7 @@ import {
   getDocs,
   serverTimestamp,
 } from "firebase/firestore";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
+import { uploadDocumentFile } from "@/app/firebase/uploadService";
 
 const tutorNavItems = [
   { label: "Dashboard", href: "/tutor/dashboard", icon: LayoutDashboard },
@@ -518,17 +513,17 @@ export default function TutorProfile() {
     setIsUploading(true);
     setUploadError(null);
     try {
-      const storage = getStorage();
-      const path = `documents/${uid}/${Date.now()}_${uploadFile.name}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, uploadFile);
-      const fileUrl = await getDownloadURL(fileRef);
+      const uploaded = await uploadDocumentFile(
+        uploadFile,
+        `documents/${uid}`,
+      );
 
       const newDocRef = await addDoc(collection(db, "documents"), {
         tutorId: doc(db, "users", uid),
         documentType: uploadDocType,
         fileName: uploadFile.name,
-        fileUrl,
+        fileUrl: uploaded.url,
+        cloudinaryPublicId: uploaded.publicId,
         status: "pending",
         uploadedAt: serverTimestamp(),
       });
@@ -539,7 +534,7 @@ export default function TutorProfile() {
           id: newDocRef.id,
           documentType: uploadDocType,
           fileName: uploadFile.name,
-          fileUrl,
+          fileUrl: uploaded.url,
           status: "pending",
           uploadedAt: new Date(),
         },
@@ -549,19 +544,13 @@ export default function TutorProfile() {
     } catch (error: any) {
       console.error("Error uploading document:", error);
       const code = error?.code as string | undefined;
-      let message = "Couldn't upload your document. Please try again.";
-      if (code === "storage/unauthorized" || code === "permission-denied") {
+      let message =
+        error?.message && typeof error.message === "string"
+          ? error.message
+          : "Couldn't upload your document. Please try again.";
+      if (code === "permission-denied") {
         message =
-          "Upload blocked by security rules (permission denied). Check your Firebase Storage and Firestore rules.";
-      } else if (code === "storage/unknown") {
-        message =
-          "Upload failed (storage/unknown) — check your Storage bucket is set up correctly.";
-      } else if (code === "storage/quota-exceeded") {
-        message = "Upload failed: Storage quota exceeded.";
-      } else if (code === "storage/canceled") {
-        message = "Upload was canceled.";
-      } else if (code) {
-        message = `Upload failed: ${code}`;
+          "Upload blocked by security rules (permission denied). Check your Firestore rules.";
       }
       setUploadError(message);
     } finally {

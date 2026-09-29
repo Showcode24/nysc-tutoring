@@ -23,7 +23,7 @@ export function CTASection() {
               impact today.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/register">
+              <Link href="/signup">
                 <Button
                   size="lg"
                   variant="secondary"

@@ -146,7 +146,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-2xl font-bold text-foreground">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity">
+            <Link href="/signup" className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity">
               Register as a Tutor
             </Link>
             <Link href="/contact" className="px-6 py-3 border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors">

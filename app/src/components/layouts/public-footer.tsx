@@ -24,7 +24,7 @@ export function PublicFooter() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
-                  href="/register"
+                  href="/signup"
                   className="hover:text-foreground transition-colors"
                 >
                   Become a Tutor

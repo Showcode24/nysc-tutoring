@@ -13,8 +13,6 @@ if (!admin.apps.length) {
   });
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // ─────────────────────────────────────────────────────────────
 //  POST /api/send-verification
 //  Body: { email: string }
@@ -22,6 +20,20 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
+    // Constructing `new Resend(...)` at module scope throws immediately if
+    // RESEND_API_KEY is unset — and Next.js evaluates route modules during
+    // `next build`'s page-data collection even without a request coming in,
+    // so that throw took the whole production build down with it. Building
+    // it lazily here means a missing key fails one request, not the build.
+    if (!process.env.RESEND_API_KEY) {
+      console.error("[send-verification] RESEND_API_KEY is not configured.");
+      return NextResponse.json(
+        { error: "Email service is not configured on the server." },
+        { status: 500 },
+      );
+    }
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
     const { email } = await req.json();
 
     if (!email || typeof email !== "string") {

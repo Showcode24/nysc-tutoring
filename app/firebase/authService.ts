@@ -1,7 +1,7 @@
 import { signOut } from "firebase/auth";
 import { collection, doc, setDoc, Timestamp, addDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "./firebase";
+import { auth, db } from "./firebase";
+import { uploadDocumentFile } from "./uploadService";
 
 interface RegistrationData {
   firstName: string;
@@ -62,6 +62,12 @@ export async function registerTutor(data: RegistrationData) {
         },
 
         userType: "tutor",
+        // Marks the profile-setup step of the funnel as done, distinct from
+        // tutorProfile.status (admin approval). loginService.ts reads this
+        // to decide whether to send a returning user back to /register —
+        // without it, every login would bounce a fully-registered tutor
+        // back into the registration form.
+        registrationCompleted: true,
         updatedAt: Timestamp.now(),
       },
       { merge: true },
@@ -91,11 +97,10 @@ export async function uploadTutorDocuments(
       try {
         onProgress?.(docKey, 25);
 
-        const storagePath = `documents/${tutorId}/${Date.now()}_${docFile.name}`;
-        const storageRef = ref(storage, storagePath);
-
-        await uploadBytes(storageRef, docFile.file);
-        const fileUrl = await getDownloadURL(storageRef);
+        const uploaded = await uploadDocumentFile(
+          docFile.file,
+          `documents/${tutorId}`,
+        );
 
         onProgress?.(docKey, 75);
 
@@ -104,7 +109,8 @@ export async function uploadTutorDocuments(
           documentType: documentTypeMap[docKey],
           fileName: docFile.name,
           fileType: docFile.file.type,
-          fileUrl: fileUrl,
+          fileUrl: uploaded.url,
+          cloudinaryPublicId: uploaded.publicId,
           status: "pending",
           verified: false,
           uploadedAt: Timestamp.now(),
