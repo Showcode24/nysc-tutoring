@@ -65,7 +65,11 @@ export default function LoginPage() {
             title: "Welcome back!",
             description: "You have successfully signed in.",
           });
-          router.push("/tutor/dashboard");
+          router.push(
+            result.role === "admin" || result.role === "super_admin"
+              ? "/admin/dashboard"
+              : "/tutor/dashboard",
+          );
           break;
       }
 
