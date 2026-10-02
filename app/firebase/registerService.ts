@@ -16,6 +16,7 @@ export interface RegistrationData {
   location: string;
   specialization: string;
   bio: string;
+  education: string;
   hourlyRate: number;
   degreeClass: string;
   category: string;

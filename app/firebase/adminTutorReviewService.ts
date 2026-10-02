@@ -25,6 +25,7 @@ export interface TutorDetail {
   tutorProfile: {
     status: string;
     bio: string;
+    education?: string;
     category: string;
     degreeClass: string;
     hourlyRate: number;

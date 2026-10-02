@@ -313,6 +313,7 @@ export default function RegisterPage() {
         location: formData.location,
         specialization: formData.subjects.join(", "),
         bio: formData.bio,
+        education: formData.education,
         hourlyRate: parseFloat(formData.hourlyRate) || 0,
         degreeClass: formData.degreeClass,
         category: determineCategory(formData.degreeClass),

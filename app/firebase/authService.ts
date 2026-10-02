@@ -23,6 +23,7 @@ interface RegistrationData {
   phone: string;
   location: string;
   bio: string;
+  education: string;
   hourlyRate: number;
   degreeClass: string;
   category: string;
@@ -67,6 +68,7 @@ export async function registerTutor(data: RegistrationData) {
 
         tutorProfile: {
           bio: data.bio,
+          education: data.education,
           hourlyRate: data.hourlyRate,
           category: data.category,
           degreeClass: data.degreeClass,

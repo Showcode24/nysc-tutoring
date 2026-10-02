@@ -58,6 +58,13 @@ const categoryOptions = [
   { value: "digital_skills", label: "Digital Skills" },
 ];
 
+const educationOptions = [
+  { value: "bachelors", label: "Bachelor's Degree" },
+  { value: "masters", label: "Master's Degree" },
+  { value: "phd", label: "Ph.D." },
+  { value: "other", label: "Other" },
+];
+
 const tutoringModeOptions: {
   value: TutoringMode;
   label: string;
@@ -108,6 +115,7 @@ interface TutorData {
   tutorProfile: {
     status: string;
     bio: string;
+    education?: string;
     category: string;
     degreeClass: string;
     hourlyRate: number;
@@ -135,6 +143,7 @@ interface PersonalDraft {
 
 interface QualificationsDraft {
   bio: string;
+  education: string;
   category: string;
   degreeClass: string;
   hourlyRate: number | "";
@@ -306,6 +315,7 @@ export default function TutorProfile() {
   const [qualError, setQualError] = useState<string | null>(null);
   const [qualDraft, setQualDraft] = useState<QualificationsDraft>({
     bio: "",
+    education: "",
     category: "",
     degreeClass: "",
     hourlyRate: "",
@@ -449,6 +459,7 @@ export default function TutorProfile() {
     if (!tutor) return;
     setQualDraft({
       bio: tutor.tutorProfile?.bio || "",
+      education: tutor.tutorProfile?.education || "",
       category: tutor.tutorProfile?.category || "",
       degreeClass: tutor.tutorProfile?.degreeClass || "",
       hourlyRate: tutor.tutorProfile?.hourlyRate ?? "",
@@ -501,6 +512,7 @@ export default function TutorProfile() {
       const hourlyRateValue = Number(qualDraft.hourlyRate) || 0;
       await updateDoc(doc(db, "users", uid), {
         "tutorProfile.bio": qualDraft.bio,
+        "tutorProfile.education": qualDraft.education,
         "tutorProfile.category": qualDraft.category,
         "tutorProfile.degreeClass": qualDraft.degreeClass,
         "tutorProfile.hourlyRate": hourlyRateValue,
@@ -515,6 +527,7 @@ export default function TutorProfile() {
               tutorProfile: {
                 ...prev.tutorProfile,
                 bio: qualDraft.bio,
+                education: qualDraft.education,
                 category: qualDraft.category,
                 degreeClass: qualDraft.degreeClass,
                 hourlyRate: hourlyRateValue,
@@ -867,6 +880,40 @@ export default function TutorProfile() {
                   )}
                 </div>
                 <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <label className={fieldLabelClass}>
+                      Highest education
+                    </label>
+                    {isEditingQualifications ? (
+                      <Select
+                        value={qualDraft.education}
+                        onValueChange={(value) =>
+                          setQualDraft((prev) => ({
+                            ...prev,
+                            education: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className={cn(fieldBaseClass, fieldEditableClass)}>
+                          <SelectValue placeholder="Select your education level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {educationOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className={cn(fieldBaseClass, fieldReadOnlyClass)}>
+                        {educationOptions.find(
+                          (o) => o.value === tutor?.tutorProfile?.education,
+                        )?.label || "Not set"}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <label className={fieldLabelClass}>Degree class</label>
                     <input

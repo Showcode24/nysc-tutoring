@@ -28,6 +28,7 @@ import {
   UserCheck,
   Mail,
   Phone,
+  MapPin,
   GraduationCap,
   Briefcase,
   Laptop,
@@ -87,6 +88,13 @@ function mapStatus(status: string): TutorStatus {
   if (status === "pending_verification") return "pending";
   return (status as TutorStatus) || "pending";
 }
+
+const educationLabels: Record<string, string> = {
+  bachelors: "Bachelor's Degree",
+  masters: "Master's Degree",
+  phd: "Ph.D.",
+  other: "Other",
+};
 
 const tutoringModeConfig: Record<string, { label: string; icon: typeof Globe }> = {
   online: { label: "Online", icon: Laptop },
@@ -521,6 +529,17 @@ export default function AdminTutorReview() {
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-accent">
+                    <MapPin className="w-4 h-4 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="font-medium">
+                      {tutor.location || "Not provided"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </motion.div>
 
@@ -535,6 +554,21 @@ export default function AdminTutorReview() {
                 <h2 className="font-semibold">Qualifications</h2>
               </div>
               <div className="p-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-accent">
+                    <GraduationCap className="w-4 h-4 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Highest Education
+                    </p>
+                    <p className="font-medium">
+                      {(tutor.tutorProfile?.education &&
+                        educationLabels[tutor.tutorProfile.education]) ||
+                        "Not provided"}
+                    </p>
+                  </div>
+                </div>
                 <div className="flex items-start gap-3">
                   <div className="p-2 rounded-lg bg-accent">
                     <GraduationCap className="w-4 h-4 text-accent-foreground" />
