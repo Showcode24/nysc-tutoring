@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
+import AdminProtectedWrapper from "@/app/src/components/layouts/admin-protected-wrapper";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import { TutorStatus } from "@/app/src/types";
 import Link from "next/link";
@@ -89,15 +90,18 @@ export default function AdminTutors() {
 
   if (isLoading) {
     return (
-      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      </DashboardLayout>
+      <AdminProtectedWrapper>
+        <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        </DashboardLayout>
+      </AdminProtectedWrapper>
     );
   }
 
   return (
+    <AdminProtectedWrapper>
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
@@ -251,5 +255,6 @@ export default function AdminTutors() {
         </motion.div>
       </div>
     </DashboardLayout>
+    </AdminProtectedWrapper>
   );
 }

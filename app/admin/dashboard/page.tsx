@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
+import AdminProtectedWrapper from "@/app/src/components/layouts/admin-protected-wrapper";
 import { MetricCard } from "@/app/src/components/shared/metric-card";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import Link from "next/link";
@@ -52,11 +53,13 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      </DashboardLayout>
+      <AdminProtectedWrapper>
+        <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        </DashboardLayout>
+      </AdminProtectedWrapper>
     );
   }
 
@@ -66,6 +69,7 @@ export default function AdminDashboard() {
   const adminRole = data?.admin?.role?.replace(/_/g, " ") || "admin";
 
   return (
+    <AdminProtectedWrapper>
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
@@ -160,7 +164,7 @@ export default function AdminDashboard() {
                             status={mapStatus(tutor.status)}
                             size="sm"
                           />
-                          <Link href={`/admin/tutors/${tutor.id}`}>
+                          <Link href={`/admin/tutor-review/${tutor.id}`}>
                             <Button variant="ghost" size="sm">
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -259,5 +263,6 @@ export default function AdminDashboard() {
         </div>
       </div>
     </DashboardLayout>
+    </AdminProtectedWrapper>
   );
 }

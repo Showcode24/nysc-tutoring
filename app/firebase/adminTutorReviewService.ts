@@ -4,12 +4,15 @@ import {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getDocs,
   updateDoc,
   addDoc,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { TutoringMode, AvailabilitySlot } from "./authService";
 
 export interface TutorDetail {
   id: string;
@@ -26,6 +29,8 @@ export interface TutorDetail {
     degreeClass: string;
     hourlyRate: number;
     specialization: string[];
+    tutoringMode?: TutoringMode;
+    availability?: AvailabilitySlot[];
   };
 }
 
@@ -50,6 +55,7 @@ export interface TutorAppointment {
 
 export interface AuditEvent {
   id: string;
+  tutorId?: string;
   action: string;
   description: string;
   timestamp: any;
@@ -195,6 +201,7 @@ export async function rejectDocument(
 
 export async function scheduleAppointment(
   tutorId: string,
+  tutorName: string,
   adminId: string,
   adminName: string,
   date: string,
@@ -202,6 +209,7 @@ export async function scheduleAppointment(
 ): Promise<void> {
   await addDoc(collection(db, "appointments"), {
     tutorId,
+    tutorName,
     assignedAdmin: adminName,
     adminId,
     type: "verification",
@@ -215,4 +223,61 @@ export async function scheduleAppointment(
     "tutorProfile.appointmentDate": date,
     updatedAt: Timestamp.now(),
   });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Admin-wide appointments list (not scoped to one tutor) — used by
+//  /admin/appointments, which previously showed hardcoded mock data
+//  instead of the appointments this file already writes to Firestore.
+// ─────────────────────────────────────────────────────────────
+export interface AppointmentRecord {
+  id: string;
+  tutorId: string;
+  tutorName: string;
+  type: string;
+  date: any;
+  time: string;
+  status: "scheduled" | "checked_in" | "completed" | "no_show" | "cancelled";
+  assignedAdmin?: string;
+}
+
+export async function fetchAllAppointments(): Promise<AppointmentRecord[]> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, "appointments"), orderBy("date", "desc"), limit(100)),
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as AppointmentRecord[];
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    return [];
+  }
+}
+
+export async function checkInAppointment(appointmentId: string): Promise<void> {
+  await updateDoc(doc(db, "appointments", appointmentId), {
+    status: "checked_in",
+  });
+}
+
+export async function cancelAppointment(appointmentId: string): Promise<void> {
+  await updateDoc(doc(db, "appointments", appointmentId), {
+    status: "cancelled",
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Admin-wide audit log — same situation as appointments above:
+//  approveTutor/rejectTutor already write real entries to `auditLog`,
+//  but /admin/audit was never reading them back.
+// ─────────────────────────────────────────────────────────────
+export async function fetchAllAuditEvents(): Promise<AuditEvent[]> {
+  try {
+    const snap = await getDocs(
+      query(collection(db, "auditLog"), orderBy("timestamp", "desc"), limit(200)),
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as AuditEvent[];
+  } catch (error) {
+    console.error("Error fetching audit log:", error);
+    return [];
+  }
 }

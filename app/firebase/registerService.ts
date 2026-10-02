@@ -2,7 +2,11 @@ import {
   registerTutor,
   uploadTutorDocuments,
   resendVerificationEmail,
+  TutoringMode,
+  AvailabilitySlot,
 } from "@/app/firebase/authService";
+
+export type { TutoringMode, AvailabilitySlot };
 
 export interface RegistrationData {
   firstName: string;
@@ -15,6 +19,8 @@ export interface RegistrationData {
   hourlyRate: number;
   degreeClass: string;
   category: string;
+  tutoringMode: TutoringMode;
+  availability: AvailabilitySlot[];
 }
 
 export interface RegistrationResult {

@@ -30,11 +30,16 @@ import {
   Phone,
   GraduationCap,
   Briefcase,
+  Laptop,
+  Home,
+  Globe,
+  CalendarClock,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
+import AdminProtectedWrapper from "@/app/src/components/layouts/admin-protected-wrapper";
 import Link from "next/link";
 import { StatusBadge } from "@/app/src/components/shared/status-badge";
 import { useParams } from "next/navigation";
@@ -81,6 +86,21 @@ const documentStatusConfig = {
 function mapStatus(status: string): TutorStatus {
   if (status === "pending_verification") return "pending";
   return (status as TutorStatus) || "pending";
+}
+
+const tutoringModeConfig: Record<string, { label: string; icon: typeof Globe }> = {
+  online: { label: "Online", icon: Laptop },
+  in_person: { label: "In-Person", icon: Home },
+  both: { label: "Online & In-Person", icon: Globe },
+};
+
+function formatSlotTime(time: string): string {
+  if (!time) return "";
+  const [hourStr, minute] = time.split(":");
+  const hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${minute} ${period}`;
 }
 
 export default function AdminTutorReview() {
@@ -240,6 +260,7 @@ export default function AdminTutorReview() {
   };
 
   const handleScheduleAppointment = async () => {
+    if (!data?.tutor) return;
     if (!appointmentDate || !appointmentTime) {
       toast({
         title: "Missing Fields",
@@ -252,6 +273,7 @@ export default function AdminTutorReview() {
     try {
       await scheduleAppointment(
         tutorId,
+        `${data.tutor.firstName} ${data.tutor.lastName}`,
         adminInfo.id,
         adminInfo.name,
         appointmentDate,
@@ -277,42 +299,47 @@ export default function AdminTutorReview() {
 
   if (isLoading) {
     return (
-      <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </div>
-      </DashboardLayout>
+      <AdminProtectedWrapper>
+        <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        </DashboardLayout>
+      </AdminProtectedWrapper>
     );
   }
 
   if (!data?.tutor) {
     return (
-      <DashboardLayout
-        navItems={adminNavItems}
-        userType="admin"
-        userName={adminInfo.name}
-        userRole={adminInfo.role}
-      >
-        <div className="flex flex-col items-center justify-center py-16">
-          <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Tutor Not Found</h2>
-          <p className="text-muted-foreground mb-4">
-            The tutor you're looking for doesn't exist.
-          </p>
-          <Link href="/admin/tutors">
-            <Button>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Tutors
-            </Button>
-          </Link>
-        </div>
-      </DashboardLayout>
+      <AdminProtectedWrapper>
+        <DashboardLayout
+          navItems={adminNavItems}
+          userType="admin"
+          userName={adminInfo.name}
+          userRole={adminInfo.role}
+        >
+          <div className="flex flex-col items-center justify-center py-16">
+            <Users className="w-12 h-12 text-muted-foreground/50 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Tutor Not Found</h2>
+            <p className="text-muted-foreground mb-4">
+              The tutor you're looking for doesn't exist.
+            </p>
+            <Link href="/admin/tutors">
+              <Button>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Tutors
+              </Button>
+            </Link>
+          </div>
+        </DashboardLayout>
+      </AdminProtectedWrapper>
     );
   }
 
   const { tutor, documents, appointments, auditEvents } = data;
 
   return (
+    <AdminProtectedWrapper>
     <DashboardLayout
       navItems={adminNavItems}
       userType="admin"
@@ -546,6 +573,27 @@ export default function AdminTutorReview() {
                     </p>
                   </div>
                 </div>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-accent">
+                    {(() => {
+                      const ModeIcon =
+                        tutoringModeConfig[tutor.tutorProfile?.tutoringMode || ""]
+                          ?.icon || Globe;
+                      return (
+                        <ModeIcon className="w-4 h-4 text-accent-foreground" />
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Tutoring Option
+                    </p>
+                    <p className="font-medium">
+                      {tutoringModeConfig[tutor.tutorProfile?.tutoringMode || ""]
+                        ?.label || "Not provided"}
+                    </p>
+                  </div>
+                </div>
                 <Separator />
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Subjects</p>
@@ -562,6 +610,35 @@ export default function AdminTutorReview() {
                     ) : (
                       <p className="text-sm text-muted-foreground">
                         No subjects added.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Availability — used for matching
+                  </p>
+                  <div className="space-y-2">
+                    {tutor.tutorProfile?.availability?.length ? (
+                      tutor.tutorProfile.availability.map((slot, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm"
+                        >
+                          <CalendarClock className="w-4 h-4 text-accent-foreground" />
+                          <span className="font-medium capitalize">
+                            {slot.days}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {formatSlotTime(slot.startTime)} –{" "}
+                            {formatSlotTime(slot.endTime)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No availability provided.
                       </p>
                     )}
                   </div>
@@ -783,5 +860,6 @@ export default function AdminTutorReview() {
         </div>
       </div>
     </DashboardLayout>
+    </AdminProtectedWrapper>
   );
 }

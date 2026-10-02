@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -9,28 +9,37 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  ChevronLeft,
-  ChevronRight,
   List,
   Grid3X3,
   Briefcase,
 } from "lucide-react";
-import { mockAppointments, mockAdmin, getTutorById } from "@/app/src/mock/data";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
-import { StatusBadge } from "@/app/src/components/shared/status-badge";
+import AdminProtectedWrapper from "@/app/src/components/layouts/admin-protected-wrapper";
 import Link from "next/link";
+import { auth, db } from "@/app/firebase/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import {
+  fetchAllAppointments,
+  checkInAppointment,
+  cancelAppointment,
+  AppointmentRecord,
+} from "@/app/firebase/adminTutorReviewService";
 
 const adminNavItems = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Tutors", href: "/admin/tutors", icon: Users },
-   { label: "Gigs", href: "/admin/gigs", icon: Briefcase },
+  { label: "Gigs", href: "/admin/gigs", icon: Briefcase },
   { label: "Appointments", href: "/admin/appointments", icon: Calendar },
   { label: "Audit Log", href: "/admin/audit", icon: History },
 ];
 
-const appointmentStatusConfig = {
+const appointmentStatusConfig: Record<
+  string,
+  { icon: typeof Clock; className: string; label: string }
+> = {
   scheduled: {
     icon: Clock,
     className: "bg-status-pending-bg text-status-pending-foreground",
@@ -58,78 +67,144 @@ const appointmentStatusConfig = {
   },
 };
 
+function toDateKey(date: any): string {
+  const d = date?.toDate ? date.toDate() : new Date(date);
+  if (isNaN(d.getTime())) return "unknown";
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AdminAppointments() {
+  const { toast } = useToast();
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-  const [currentDate] = useState(new Date());
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [adminName, setAdminName] = useState("");
+  const [adminRole, setAdminRole] = useState("admin");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const load = async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const adminDoc = await getDoc(doc(db, "users", currentUser.uid));
+      if (adminDoc.exists()) {
+        const d = adminDoc.data();
+        setAdminName(`${d.firstName || ""} ${d.lastName || ""}`.trim());
+        setAdminRole((d.role || d.userType || "admin").replace(/_/g, " "));
+      }
+    }
+    const result = await fetchAllAppointments();
+    setAppointments(result);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleCheckIn = async (id: string) => {
+    setProcessingId(id);
+    try {
+      await checkInAppointment(id);
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: "checked_in" } : a)),
+      );
+      toast({ title: "Checked in" });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to check in.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    setProcessingId(id);
+    try {
+      await cancelAppointment(id);
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: "cancelled" } : a)),
+      );
+      toast({ title: "Appointment cancelled" });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to cancel appointment.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Group appointments by date
-  const appointmentsByDate = mockAppointments.reduce(
+  const appointmentsByDate = appointments.reduce(
     (acc, apt) => {
-      if (!acc[apt.date]) {
-        acc[apt.date] = [];
-      }
-      acc[apt.date].push(apt);
+      const key = toDateKey(apt.date);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(apt);
       return acc;
     },
-    {} as Record<string, typeof mockAppointments>,
+    {} as Record<string, AppointmentRecord[]>,
   );
 
-  const sortedDates = Object.keys(appointmentsByDate).sort();
+  const sortedDates = Object.keys(appointmentsByDate)
+    .filter((d) => d !== "unknown")
+    .sort()
+    .reverse();
+
+  if (isLoading) {
+    return (
+      <AdminProtectedWrapper>
+        <DashboardLayout navItems={adminNavItems} userType="admin" userName="">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        </DashboardLayout>
+      </AdminProtectedWrapper>
+    );
+  }
 
   return (
-    <DashboardLayout
-      navItems={adminNavItems}
-      userType="admin"
-      userName={`${mockAdmin.firstName} ${mockAdmin.lastName}`}
-      userRole={mockAdmin.role.replace("_", " ")}
-    >
-      <div className="space-y-8">
-        {/* Page Header */}
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Appointments</h1>
-            <p className="page-description">
-              Manage tutor verification appointments and schedules.
-            </p>
+    <AdminProtectedWrapper>
+      <DashboardLayout
+        navItems={adminNavItems}
+        userType="admin"
+        userName={adminName}
+        userRole={adminRole}
+      >
+        <div className="space-y-8">
+          {/* Page Header */}
+          <div className="page-header">
+            <div>
+              <h1 className="page-title">Appointments</h1>
+              <p className="page-description">
+                Manage tutor verification appointments and schedules.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === "calendar" ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("calendar")}
+                title="Calendar view isn't wired up yet — showing the list instead"
+                disabled
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "calendar" ? "secondary" : "ghost"}
-              size="icon"
-              onClick={() => setViewMode("calendar")}
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
 
-        {/* Calendar Navigation */}
-        <div className="card-elevated p-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="icon">
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            <h2 className="font-semibold">
-              {currentDate.toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric",
-              })}
-            </h2>
-            <Button variant="ghost" size="icon">
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* List View */}
-        {viewMode === "list" && (
+          {/* List View */}
           <div className="space-y-6">
             {sortedDates.map((date) => (
               <motion.div
@@ -147,9 +222,10 @@ export default function AdminAppointments() {
                 </h3>
                 <div className="card-elevated divide-y divide-border">
                   {appointmentsByDate[date].map((apt) => {
-                    const statusConfig = appointmentStatusConfig[apt.status];
+                    const statusConfig =
+                      appointmentStatusConfig[apt.status] ||
+                      appointmentStatusConfig.scheduled;
                     const StatusIcon = statusConfig.icon;
-                    const tutor = getTutorById(apt.tutorId);
 
                     return (
                       <div key={apt.id} className="p-4 flex items-center gap-4">
@@ -160,14 +236,11 @@ export default function AdminAppointments() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <Link
-                              href={`/admin/tutors/${apt.tutorId}`}
+                              href={`/admin/tutor-review/${apt.tutorId}`}
                               className="font-medium hover:text-primary transition-colors"
                             >
-                              {apt.tutorName}
+                              {apt.tutorName || "Unknown tutor"}
                             </Link>
-                            {tutor && (
-                              <StatusBadge status={tutor.status} size="sm" />
-                            )}
                           </div>
                           <p className="text-sm text-muted-foreground capitalize">
                             {apt.type.replace("_", " ")}
@@ -188,13 +261,20 @@ export default function AdminAppointments() {
 
                           {apt.status === "scheduled" && (
                             <div className="flex items-center gap-2">
-                              <Button size="sm" variant="outline">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={processingId === apt.id}
+                                onClick={() => handleCheckIn(apt.id)}
+                              >
                                 Check In
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="text-destructive"
+                                disabled={processingId === apt.id}
+                                onClick={() => handleCancel(apt.id)}
                               >
                                 Cancel
                               </Button>
@@ -220,78 +300,8 @@ export default function AdminAppointments() {
               </div>
             )}
           </div>
-        )}
-
-        {/* Calendar View (Simplified) */}
-        {viewMode === "calendar" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="card-elevated p-6"
-          >
-            {/* Calendar Grid Header */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div
-                  key={day}
-                  className="text-center text-sm font-medium text-muted-foreground py-2"
-                >
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {Array.from({ length: 35 }, (_, i) => {
-                const dayNumber = i - 3; // Offset for starting day
-                const isCurrentMonth = dayNumber >= 0 && dayNumber < 31;
-                const dayDate = isCurrentMonth ? dayNumber + 1 : "";
-                const dateStr = isCurrentMonth
-                  ? `2024-01-${String(dayNumber + 1).padStart(2, "0")}`
-                  : "";
-                const dayAppointments = appointmentsByDate[dateStr] || [];
-
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "min-h-[100px] p-2 border border-border rounded-lg transition-colors",
-                      isCurrentMonth
-                        ? "bg-card hover:bg-accent/50"
-                        : "bg-muted/30",
-                    )}
-                  >
-                    {isCurrentMonth && (
-                      <>
-                        <span className="text-sm font-medium">{dayDate}</span>
-                        <div className="mt-1 space-y-1">
-                          {dayAppointments.slice(0, 2).map((apt) => (
-                            <div
-                              key={apt.id}
-                              className={cn(
-                                "text-xs px-1.5 py-0.5 rounded truncate",
-                                appointmentStatusConfig[apt.status].className,
-                              )}
-                            >
-                              {apt.time} - {apt.tutorName.split(" ")[0]}
-                            </div>
-                          ))}
-                          {dayAppointments.length > 2 && (
-                            <div className="text-xs text-muted-foreground">
-                              +{dayAppointments.length - 2} more
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </DashboardLayout>
+        </div>
+      </DashboardLayout>
+    </AdminProtectedWrapper>
   );
 }

@@ -23,6 +23,12 @@ import {
   FileText,
   Shield,
   MapPin,
+  Laptop,
+  Home,
+  Globe,
+  CalendarClock,
+  Plus,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +38,24 @@ import {
   determineCategory,
   submitTutorRegistration,
   submitTutorDocuments,
+  TutoringMode,
+  AvailabilitySlot,
 } from "../firebase/registerService";
+
+const tutoringModeOptions: { value: TutoringMode; label: string; icon: typeof Globe }[] = [
+  { value: "online", label: "Online", icon: Laptop },
+  { value: "in_person", label: "In-Person", icon: Home },
+  { value: "both", label: "Both", icon: Globe },
+];
+
+function formatTime(time: string): string {
+  if (!time) return "";
+  const [hourStr, minute] = time.split(":");
+  const hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${minute} ${period}`;
+}
 
 const steps = [
   { id: 1, title: "Personal Info", icon: User },
@@ -147,8 +170,47 @@ export default function RegisterPage() {
     degreeClass: "",
     subjects: [] as string[],
     hourlyRate: "",
+    tutoringMode: "" as TutoringMode | "",
+    availability: [] as AvailabilitySlot[],
     agreedToTerms: false,
   });
+
+  const [newSlot, setNewSlot] = useState<AvailabilitySlot>({
+    days: "weekdays",
+    startTime: "",
+    endTime: "",
+  });
+
+  const addAvailabilitySlot = () => {
+    if (!newSlot.startTime || !newSlot.endTime) {
+      toast({
+        title: "Missing time",
+        description: "Please set both a start and end time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newSlot.startTime >= newSlot.endTime) {
+      toast({
+        title: "Invalid time range",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      availability: [...prev.availability, newSlot],
+    }));
+    setNewSlot({ days: "weekdays", startTime: "", endTime: "" });
+  };
+
+  const removeAvailabilitySlot = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      availability: prev.availability.filter((_, i) => i !== index),
+    }));
+  };
 
   const [uploadedFiles, setUploadedFiles] = useState<{
     [key: string]: { file: File; name: string };
@@ -254,6 +316,8 @@ export default function RegisterPage() {
         hourlyRate: parseFloat(formData.hourlyRate) || 0,
         degreeClass: formData.degreeClass,
         category: determineCategory(formData.degreeClass),
+        tutoringMode: formData.tutoringMode as TutoringMode,
+        availability: formData.availability,
       };
 
       const result = await submitTutorRegistration(registrationData);
@@ -324,7 +388,9 @@ export default function RegisterPage() {
       formData.degreeClass.trim() !== "" &&
       formData.subjects.length > 0 &&
       formData.hourlyRate.trim() !== "" &&
-      parseFloat(formData.hourlyRate) > 0
+      parseFloat(formData.hourlyRate) > 0 &&
+      formData.tutoringMode !== "" &&
+      formData.availability.length > 0
     );
   };
 
@@ -697,6 +763,139 @@ export default function RegisterPage() {
                   <p className="text-xs text-muted-foreground">
                     Price in Nigerian Naira (₦)
                   </p>
+                </div>
+
+                {/* Tutoring Mode */}
+                <div className="space-y-2">
+                  <Label>Preferred Tutoring Option *</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {tutoringModeOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() =>
+                          updateFormData("tutoringMode", option.value)
+                        }
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium border transition-colors",
+                          formData.tutoringMode === option.value
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-white dark:bg-slate-800 text-foreground border-border hover:bg-accent",
+                        )}
+                      >
+                        <option.icon className="w-4 h-4" />
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    How you'd like to deliver lessons to students.
+                  </p>
+                </div>
+
+                {/* Availability */}
+                <div className="space-y-2">
+                  <Label>Availability Schedule *</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Add the times you're usually free — this is what we use
+                    to match you with students who need lessons then.
+                  </p>
+
+                  {formData.availability.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {formData.availability.map((slot, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
+                        >
+                          <span className="text-sm flex items-center gap-2">
+                            <CalendarClock className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium capitalize">
+                              {slot.days}
+                            </span>
+                            {formatTime(slot.startTime)} –{" "}
+                            {formatTime(slot.endTime)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeAvailabilitySlot(index)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Remove slot"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-border p-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="slotDays" className="text-xs">
+                        Days
+                      </Label>
+                      <Select
+                        value={newSlot.days}
+                        onValueChange={(value) =>
+                          setNewSlot((prev) => ({
+                            ...prev,
+                            days: value as "weekdays" | "weekends",
+                          }))
+                        }
+                      >
+                        <SelectTrigger id="slotDays" className="w-[130px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekdays">Weekdays</SelectItem>
+                          <SelectItem value="weekends">Weekends</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="slotStart" className="text-xs">
+                        From
+                      </Label>
+                      <Input
+                        id="slotStart"
+                        type="time"
+                        className="w-[110px]"
+                        value={newSlot.startTime}
+                        onChange={(e) =>
+                          setNewSlot((prev) => ({
+                            ...prev,
+                            startTime: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="slotEnd" className="text-xs">
+                        To
+                      </Label>
+                      <Input
+                        id="slotEnd"
+                        type="time"
+                        className="w-[110px]"
+                        value={newSlot.endTime}
+                        onChange={(e) =>
+                          setNewSlot((prev) => ({
+                            ...prev,
+                            endTime: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addAvailabilitySlot}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}

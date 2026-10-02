@@ -16,11 +16,23 @@ import {
   Plus,
   Loader2,
   ArrowUpRight,
+  Laptop,
+  Home,
+  Globe,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/app/src/components/layouts/dashboard-layouts";
 import ProtectedPageWrapper from "@/app/src/components/layouts/protected-page-wrapper";
 import { auth, db } from "@/app/firebase/firebase";
+import { TutoringMode, AvailabilitySlot } from "@/app/firebase/authService";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   doc,
   getDoc,
@@ -45,6 +57,25 @@ const categoryOptions = [
   { value: "academic", label: "Academic Subjects" },
   { value: "digital_skills", label: "Digital Skills" },
 ];
+
+const tutoringModeOptions: {
+  value: TutoringMode;
+  label: string;
+  icon: typeof Globe;
+}[] = [
+  { value: "online", label: "Online", icon: Laptop },
+  { value: "in_person", label: "In-Person", icon: Home },
+  { value: "both", label: "Both", icon: Globe },
+];
+
+function formatSlotTime(time: string): string {
+  if (!time) return "";
+  const [hourStr, minute] = time.split(":");
+  const hour = parseInt(hourStr, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${minute} ${period}`;
+}
 
 // NOTE: adjust these values to match whatever documentType strings your
 // admin/verification screens already expect.
@@ -81,6 +112,8 @@ interface TutorData {
     degreeClass: string;
     hourlyRate: number;
     specialization: string[];
+    tutoringMode?: TutoringMode;
+    availability?: AvailabilitySlot[];
   };
 }
 
@@ -106,6 +139,8 @@ interface QualificationsDraft {
   degreeClass: string;
   hourlyRate: number | "";
   specialization: string[];
+  tutoringMode: TutoringMode | "";
+  availability: AvailabilitySlot[];
 }
 
 function calculateProfileCompletion(tutor: TutorData): number {
@@ -275,8 +310,39 @@ export default function TutorProfile() {
     degreeClass: "",
     hourlyRate: "",
     specialization: [],
+    tutoringMode: "",
+    availability: [],
   });
   const [newSubject, setNewSubject] = useState("");
+  const [newSlot, setNewSlot] = useState<AvailabilitySlot>({
+    days: "weekdays",
+    startTime: "",
+    endTime: "",
+  });
+
+  const addAvailabilitySlot = () => {
+    if (!newSlot.startTime || !newSlot.endTime) {
+      setQualError("Please set both a start and end time.");
+      return;
+    }
+    if (newSlot.startTime >= newSlot.endTime) {
+      setQualError("End time must be after start time.");
+      return;
+    }
+    setQualError(null);
+    setQualDraft((prev) => ({
+      ...prev,
+      availability: [...prev.availability, newSlot],
+    }));
+    setNewSlot({ days: "weekdays", startTime: "", endTime: "" });
+  };
+
+  const removeAvailabilitySlot = (index: number) => {
+    setQualDraft((prev) => ({
+      ...prev,
+      availability: prev.availability.filter((_, i) => i !== index),
+    }));
+  };
 
   // Document upload
   const [isUploadPanelOpen, setIsUploadPanelOpen] = useState(false);
@@ -387,8 +453,11 @@ export default function TutorProfile() {
       degreeClass: tutor.tutorProfile?.degreeClass || "",
       hourlyRate: tutor.tutorProfile?.hourlyRate ?? "",
       specialization: tutor.tutorProfile?.specialization || [],
+      tutoringMode: tutor.tutorProfile?.tutoringMode || "",
+      availability: tutor.tutorProfile?.availability || [],
     });
     setNewSubject("");
+    setNewSlot({ days: "weekdays", startTime: "", endTime: "" });
     setQualError(null);
     setIsEditingQualifications(true);
   };
@@ -397,6 +466,7 @@ export default function TutorProfile() {
     setIsEditingQualifications(false);
     setQualError(null);
     setNewSubject("");
+    setNewSlot({ days: "weekdays", startTime: "", endTime: "" });
   };
 
   const addSubject = () => {
@@ -435,6 +505,8 @@ export default function TutorProfile() {
         "tutorProfile.degreeClass": qualDraft.degreeClass,
         "tutorProfile.hourlyRate": hourlyRateValue,
         "tutorProfile.specialization": qualDraft.specialization,
+        "tutorProfile.tutoringMode": qualDraft.tutoringMode || null,
+        "tutorProfile.availability": qualDraft.availability,
       });
       setTutor((prev) =>
         prev
@@ -447,6 +519,8 @@ export default function TutorProfile() {
                 degreeClass: qualDraft.degreeClass,
                 hourlyRate: hourlyRateValue,
                 specialization: qualDraft.specialization,
+                tutoringMode: qualDraft.tutoringMode || undefined,
+                availability: qualDraft.availability,
               },
             }
           : prev,
@@ -966,6 +1040,149 @@ export default function TutorProfile() {
                           : fieldReadOnlyClass,
                       )}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className={fieldLabelClass}>
+                      Preferred Tutoring Option
+                    </label>
+                    {isEditingQualifications ? (
+                      <div className="flex flex-wrap gap-2">
+                        {tutoringModeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setQualDraft((prev) => ({
+                                ...prev,
+                                tutoringMode: option.value,
+                              }))
+                            }
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] transition",
+                              qualDraft.tutoringMode === option.value
+                                ? "border-terracotta bg-terracotta text-cream"
+                                : "border-line bg-sand text-ink-soft hover:border-terracotta/40 hover:text-ink",
+                            )}
+                          >
+                            <option.icon className="h-3.5 w-3.5" />
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={cn(fieldBaseClass, fieldReadOnlyClass)}>
+                        {tutor?.tutorProfile?.tutoringMode
+                          ? tutoringModeOptions.find(
+                              (o) => o.value === tutor.tutorProfile.tutoringMode,
+                            )?.label
+                          : "Not set"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className={fieldLabelClass}>
+                      Availability Schedule
+                    </label>
+                    <div className="space-y-2">
+                      {(isEditingQualifications
+                        ? qualDraft.availability
+                        : tutor?.tutorProfile?.availability || []
+                      ).length ? (
+                        (isEditingQualifications
+                          ? qualDraft.availability
+                          : tutor?.tutorProfile?.availability || []
+                        ).map((slot, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-line bg-sand/50 px-3.5 py-2.5"
+                          >
+                            <span className="flex items-center gap-2 text-sm text-ink">
+                              <CalendarClock className="h-4 w-4 text-ink-soft" />
+                              <span className="font-medium capitalize">
+                                {slot.days}
+                              </span>
+                              {formatSlotTime(slot.startTime)} –{" "}
+                              {formatSlotTime(slot.endTime)}
+                            </span>
+                            {isEditingQualifications && (
+                              <button
+                                type="button"
+                                onClick={() => removeAvailabilitySlot(index)}
+                                className="text-ink-soft hover:text-terracotta"
+                                aria-label="Remove slot"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-ink-soft">
+                          No availability added yet.
+                        </p>
+                      )}
+                    </div>
+
+                    {isEditingQualifications && (
+                      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-line p-3 mt-2">
+                        <Select
+                          value={newSlot.days}
+                          onValueChange={(value) =>
+                            setNewSlot((prev) => ({
+                              ...prev,
+                              days: value as "weekdays" | "weekends",
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="weekdays">Weekdays</SelectItem>
+                            <SelectItem value="weekends">Weekends</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <input
+                          type="time"
+                          value={newSlot.startTime}
+                          onChange={(e) =>
+                            setNewSlot((prev) => ({
+                              ...prev,
+                              startTime: e.target.value,
+                            }))
+                          }
+                          className={cn(
+                            fieldBaseClass,
+                            fieldEditableClass,
+                            "w-[110px]",
+                          )}
+                        />
+                        <input
+                          type="time"
+                          value={newSlot.endTime}
+                          onChange={(e) =>
+                            setNewSlot((prev) => ({
+                              ...prev,
+                              endTime: e.target.value,
+                            }))
+                          }
+                          className={cn(
+                            fieldBaseClass,
+                            fieldEditableClass,
+                            "w-[110px]",
+                          )}
+                        />
+                        <button
+                          type="button"
+                          onClick={addAvailabilitySlot}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-sand text-ink-soft transition hover:border-terracotta/40 hover:text-terracotta"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {qualError && (

@@ -3,6 +3,19 @@ import { collection, doc, setDoc, Timestamp, addDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { uploadDocumentFile } from "./uploadService";
 
+// A tutor's availability is a set of open time windows, each attached to
+// either weekdays or weekends (e.g. "Weekdays 3–5pm", "Weekends 10am–1pm")
+// rather than a single fixed schedule, since most tutors' free hours
+// differ between the two. Admins use this plus `tutoringMode` to match
+// tutors to students who need them at a specific time and format.
+export type TutoringMode = "online" | "in_person" | "both";
+
+export interface AvailabilitySlot {
+  days: "weekdays" | "weekends";
+  startTime: string; // 24h "HH:MM", from an <input type="time">
+  endTime: string;
+}
+
 interface RegistrationData {
   firstName: string;
   lastName: string;
@@ -14,6 +27,8 @@ interface RegistrationData {
   degreeClass: string;
   category: string;
   specialization: string;
+  tutoringMode: TutoringMode;
+  availability: AvailabilitySlot[];
 }
 
 interface DocumentUpload {
@@ -58,6 +73,8 @@ export async function registerTutor(data: RegistrationData) {
           specialization: data.specialization
             .split(", ")
             .filter((s) => s.trim()),
+          tutoringMode: data.tutoringMode,
+          availability: data.availability,
           status: "pending_verification",
         },
 
